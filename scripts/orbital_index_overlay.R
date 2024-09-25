@@ -33,13 +33,14 @@ compareCRS(wade_t3_las, wade_t3_shp_reproj) #false but it's okay
 #clip las point cloud to be just focal tree
 wade_t3_las_clip <- clip_roi(wade_t3_las, wade_t3_shp_reproj)
 plot(wade_t3_las_clip) #yay!
+##can we apply index to the las plot? 
 #str(wade_t3_las_clip)
 
 #define las bands
 R <- wade_t3_las@data$R
 #print(R)
-G <- wade_t3_las$G
-B <- wade_t3_las$B
+G <- wade_t3_las@data$G
+B <- wade_t3_las@data$B
 
 #create orange index
 orange_index <- function(R, G) {
@@ -51,8 +52,13 @@ index_overlay <- orange_index(R, G)
 plot(index_overlay)
 print(index_overlay)
 
+##use equation to get number of cones per pixel 
+##figure out pixel size in las file
+##
+
 #take mean index value of orbital (to compare to mean index value of same tree from ortho) 
 mean_index_orbital <- mean(index_overlay)
+sum_index_orbital <- sum(index_overlay)
 
 #load in ortho from wade
 wade_ortho <- brick("C:/Users/hmz25/Documents/pix4d/20240103_Wade/3_dsm_ortho/2_mosaic/20240103_Wade_transparent_mosaic_group1.tif")
@@ -62,6 +68,10 @@ wade_ortho <- brick("C:/Users/hmz25/Documents/pix4d/20240103_Wade/3_dsm_ortho/2_
 wade_ortho_clip <- crop(wade_ortho, extent(wade_t3_shp_reproj))
 #plotRGB(wade_ortho_clip)
 #plot(wade_t3_ext
+
+#extract t3 from ortho
+wade_t3_rgb <- mask(wade_ortho_clip, wade_t3_shp_reproj)
+plotRGB(wade_t3_rgb)
 
 #extract pixel values from ortho image
 t3_ortho_rgb <- raster::extract(x = wade_ortho_clip, 
@@ -105,6 +115,6 @@ cone_palette <- colorRampPalette(c("green", "orangered"))
 plot(wade_t3_ortho_index, col = cone_palette(100), alpha = 1, axes = FALSE, box = FALSE)
 
 #NEXT STEPS
-## way to visualize regular rgb image for t3 from ortho
+## same pixel classification for orbital as for ortho? YES
 ## create loops to do this for all orbital images rather than just one 
 
