@@ -71,7 +71,7 @@ quadrat_cones <- quadrat_cones %>%
 
 #calculate total number of cones in each quadrat
 quadrat_cones <- quadrat_cones %>%
-  mutate(total_cones = cone_mean*total_mass)
+  mutate(total_cones = cone_mean*total_mass) #total cones = cones per 25cmx25cm (625cm2)
 
 #rename date column and ensure dates are in the right format
 quadrat_cones <- rename(quadrat_cones, date = date_collected)
