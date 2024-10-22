@@ -83,7 +83,6 @@ training_df <- bind_rows(sup_not_twig_df, sup_yes_twig_df) %>%
   dplyr::select(-max) %>%
   sample_n(100000) %>%
   mutate(class = as.factor(class))
-#RENAME SO THAT LAYER YES = 1, NO = 0 INSTEAD OF DEFAULT 1 AND 2 
 #head(training_df)
 #str(training_df)
 
@@ -107,18 +106,12 @@ wade_t3_las_clip_df <- as.data.frame(wade_t3_las_clip@data) %>%
 
 #create df with pixel values assigned to cone/foliage vs not cone/foliage 
 wade_t3_las_clip_mask_df <- predict(rf_mask, wade_t3_las_clip_df) %>% 
-  as.data.frame()
-# head(photo_i_mask_df)
-# photo_i_df <- photo_i_df %>%
-#   mutate(is_foreground = photo_i_mask_df,
-#          is_foreground_numeric = case_when( is_foreground == "yes" ~ 1,
-#                                             is_foreground == "not" ~ 0))
-# #head(photo_i_df)
+  as.data.frame() 
 
 wade_t3_las_mask_df <- wade_t3_las_clip_mask_df %>% 
   cbind(wade_t3_las_clip_df, wade_t3_las_clip_mask_df) %>% 
   select(c(1:4)) %>% 
-  rename("rf_mask" = 1)
+  rename("rf_mask" = 1) 
 
 #add pixel classification values back to las data 
 wade_t3_las_clip@data$rf_mask <- wade_t3_las_clip_mask_df # photo_i_df$is_foreground
@@ -142,8 +135,8 @@ plotRGB(wade_t3_rgb)
 #apply pixel classifier to ortho image
 wade_t3_rgb_sub <- subset(wade_t3_rgb, 1:3) 
 names(wade_t3_rgb_sub) <- colnames(training_df)[1:3]
-wade_t3_rgb_masked <- predict(wade_t3_rgb_sub, rf_mask)
-#plot(wade_t3_rgb_masked)
+wade_t3_rgb_masked <- predict(wade_t3_rgb_sub, rf_mask) 
+#plot(wade_t3_rgb_masked) # 1 = not foliage, 2 = yes foliage 
 
 wade_t3_rgb <- stack(wade_t3_rgb_sub, wade_t3_rgb_masked)
 
@@ -164,19 +157,44 @@ wade_t3_las_mask_df <- wade_t3_las_mask_df %>%
   filter(rf_mask == "yes") %>% 
   mutate(orange_index = (r-g)/(r+g))
 
-#take sum index value of orbital (to compare to sum index value of same tree from ortho) 
-sum_index_las <- sum(wade_t3_las_mask_df$orange_index)
+## add column to calculate number of cones from index reading
+wade_t3_las_mask_df <- wade_t3_las_mask_df %>% 
+  mutate(cone_n = 514.5 + (13534.7 * orange_index)) #equation is from the lm calculated in script "hz_handheld_spectralindex"
 
+## account for pixel size
+###cones df gives total cones per 625 cm2 (25cm x 25cm)
+### compute las point density (points per sq m)
+point_density <- lidR::density(wade_t3_las_clip)
+
+### convert point density to point spacing (average distance between points in meters)
+point_spacing_m <- 1 / sqrt(point_density)  # in m
+
+### convert point spacing to cm
+point_spacing_cm <- point_spacing_m * 100
+
+### area covered by one point in cm2
+las_pixel_res_cm <- point_spacing_cm^2
+
+## take sum of cones for t3 from las iamge
+sum_las_cones <- sum(wade_t3_las_mask_df$cone_n)
 
 #calculate index values for rgb ortho image 
 
+## add index column to df 
 wade_t3_rgb_mask_df <- wade_t3_rgb_df %>% 
   filter(rf_mask == "yes") %>% 
   mutate(orange_index = (r-g)/(r+g))
-#head(wade_t3_rgb_mask_df)  
+#head(wade_t3_rgb_mask_df) 
 
-#take sum index value for t3 from ortho image
-sum_index_rgb <- sum(wade_t3_rgb_mask_df$orange_index) 
+## add column to calculate number of cones from index reading 
+
+## account for pixel size 
+rgb_pixel_res_m <- res(wade_t3_rgb) #in m
+rgb_pixel_res_cm <- (rgb_pixel_res_m * 100) #converting to cm
+rgb_pixel_res_cm <- .991^2 #rgb pixel size is .982 px/cm2
+
+## take sum index value for t3 from ortho image
+
 
 
 # visualize index on las and rgb images -----------------------------------
