@@ -31,7 +31,7 @@ quadrat_cones <- read_csv("Box/texas/pollen_production/TX jan 24/data analysis/2
 
 #add cones per weight columns
 quadrat_cones <- quadrat_cones %>%
-  select(date_collected,
+  dplyr::select(date_collected,
          site,
          tree,
          quadrat,
@@ -49,7 +49,7 @@ quadrat_cones <- quadrat_cones %>%
 
 #take mean of cone per weight for each quadrat
 quadrat_cones <- quadrat_cones %>%
-  select(date_collected,
+  dplyr::select(date_collected,
          site,
          tree,
          quadrat,
@@ -85,11 +85,10 @@ quadrat_cones$site <- substr(quadrat_cones$site, 1, 4)
 # process drone image files -----------------------------------------------
 
 #create a function to load image files
-list.files("Box/texas/pollen_production/TX jan 24/data analysis/cropped eye levels") #83 files
+list.files("Box/texas/pollen_production/TX jan 24/data analysis/cropped eye levels") 
 
-eyelevel_files <- list.files("Box/texas/pollen_production/TX jan 24/data analysis/cropped eye levels")#[1]
-image_directory <- "Box/texas/pollen_production/TX jan 24/data analysis/cropped eye levels/"
-
+image_dir <- "Box/texas/pollen_production/TX jan 24/data analysis/cropped eye levels/"
+quadrat_files <- list.files(image_dir)#[1]
 
 test <- stack("Box/texas/pollen_production/TX jan 24/data analysis/cropped eye levels/kimble_t3_q3.tif")
 plotRGB(test)
@@ -199,12 +198,13 @@ photo_masked_df <- data.frame()
 for(i in 1:length(photo_list)){
   photo_i <- stack(photo_list_full_dir[i]) #plot(photo_i) #photo_i <- stack(photo_list_full_dir[2])
   
-  photo_i[[1]][photo_i[[4]] == 1] <- NA
-  photo_i[[2]][photo_i[[4]] == 1] <- NA
-  photo_i_index_rg_dif <- (photo_i[[1]] - photo_i[[2]])/(photo_i[[1]] + photo_i[[2]])
+  photo_i[[1]][photo_i[[4]] == 1] <- NA #set all red pixel values that are not foliage/cones to NA
+  photo_i[[2]][photo_i[[4]] == 1] <- NA #set all green pixel values that are not foliage/cones to NA
+  photo_i_index_rg_dif <- (photo_i[[1]] - photo_i[[2]])/(photo_i[[1]] + photo_i[[2]]) #calculate index 
   
-  photo_i_rg_dif <- cellStats(photo_i_index_rg_dif, "mean")
+  photo_i_rg_dif <- cellStats(photo_i_index_rg_dif, "mean") #take mean index value 
   
+  #create threshold value so that all values below threshold below that value (not cones) are dropped 
   photo_i_index_rg_thresh <- photo_i_index_rg_dif #plot(photo_i)
   photo_i_index_rg_thresh[photo_i_index_rg_dif[] < 0.05] <- 0
   photo_i_index_rg_thresh[photo_i_index_rg_dif[] > 0.05] <- 1
@@ -217,7 +217,7 @@ for(i in 1:length(photo_list)){
   photo_i_r <- cellStats(photo_i[[1]], "mean")
   photo_i_g <- cellStats(photo_i[[2]], "mean")
   photo_i_b <- cellStats(photo_i[[3]], "mean")
-  photo_i_mask <- cellStats(photo_i[[4]], "mean") - 1 #1 == background, 2 = foreground
+  photo_i_mask <- cellStats(photo_i[[4]], "mean") - 1 #1 = background, 2 = foreground
   
   photo_i_rgb <- data.frame(photo_list[i], photo_i_r, photo_i_g, photo_i_b, photo_i_mask, photo_i_rg_dif, 
                             photo_i_index_rg_thresh_mean, photo_i_index_rg_thresh_sum)
@@ -242,12 +242,21 @@ quadrat_cones_rgb_test <- quadrat_cones_rgb %>%
 
 #quadrat_cones_rgb_test <- quadrat_cones_rgb_test %>% filter(photo_i_mask > 0.5) #applying this filter results in no values 
 
-ggplot(quadrat_cones_rgb_test, aes(x=photo_i_index_rg_thresh_sum, y = total_cones/(0.25*0.25))) + 
+ggplot(quadrat_cones_rgb_test, aes(x=photo_i_index_rg_thresh_sum, y = total_cones/(0.25*0.25), col = site)) + 
   geom_point(alpha = 0.5) + 
   theme_bw() + 
   geom_smooth(method = "lm", se = FALSE) +
   xlab("spectral index") + ylab(cone~density~(cones/m^2)) + ggthemes::theme_few()#scale_color_viridis_c()  # + facet_wrap(~site)
 
+# quadrat_cones_rgb_test_treeID <- quadrat_cones_rgb_test %>% 
+#   mutate(tree_id = paste(site, tree, sep = "_")) %>% 
+#   as.data.frame()
+# 
+# ggplot(quadrat_cones_rgb_test_treeID, aes(x = photo_i_index_rg_thresh_sum, y = total_cones/(0.25*0.25), col = tree_id)) +
+#   geom_point(alpha = 0.5) + 
+#   theme_bw() + 
+#   geom_smooth(method = "lm", se = FALSE) +
+#   xlab("spectral index") + ylab(cone~density~(cones/m^2)) + ggthemes::theme_few()
 
 fit <- lm(quadrat_cones_rgb_test$total_cones  ~ quadrat_cones_rgb_test$photo_i_index_rg_thresh_sum   )
 summary(fit)
