@@ -1,3 +1,5 @@
+#script for analyzing the spectral index of each quadrat on each tree
+
 library(terra)
 library(dplyr)
 library(tidyverse)
@@ -17,13 +19,13 @@ quadrat_files <- list.files(photo_dir, full.names = TRUE)
 # plot(test)
 # plotRGB(test)
 
-#these pics have already been filtered using the random forest pixel classifier
+#load in pictures, these pics have already been filtered using the random forest pixel classifier
 for (i in seq_along(quadrat_files)) {
-  
+
   file_name <- file_path_sans_ext(basename(quadrat_files[i]))
-  
+
   assign(file_name, rast(quadrat_files[i]))
-  
+
   print(i)
 }
 
@@ -43,6 +45,7 @@ for (i in seq_along(quadrat_files)) {
 
 quadrat_list <- vector("list", length(quadrat_files))
 
+#load in each masked quadrat picture as a raster file and create a df with its pixel values
 
 for (i in seq_along(quadrat_files)){
   
@@ -52,7 +55,7 @@ for (i in seq_along(quadrat_files)){
   
   quadrat_df <- as.data.frame(quadrat_i) %>% 
     rename(r = 1, b = 2, g = 3, foliage = 4) %>% 
-    filter(foliage == 2) %>% 
+    filter(foliage == 2) %>% #this filters out pixels that are not cones or foliage 
     mutate(quadrat = file_name) %>% 
     mutate(orange_index = ((r-g)/(r+g)))
   
@@ -60,12 +63,16 @@ for (i in seq_along(quadrat_files)){
   
   print(i)
 }
+#the difference between this pixel filter and the other one is that the other one counted the number of pixel values that were cone, vs the number of pixel values that were not cone based on a threshold defined by the spectral index 
+#this code directly relates the spectral index reading to the number of cones
 
+#join quadrat pixel values
 full_df <- dplyr::bind_rows(quadrat_list)
 
 # str(full_df)                                    
 # tail(full_df)
 # unique(full_df$quadrat)
+
 
 # add in cone count data
 
@@ -121,18 +128,19 @@ quadrat_cones$date <- mdy(quadrat_cones$date)
 
 #reformat cones df
 cones_per_quadrat_df <- quadrat_cones %>% 
-  select(date, site, tree, quadrat, total_cones) %>% 
-  mutate(tree = as.character(tree))
+  dplyr::select(date, site, tree, quadrat, total_cones) %>% 
+  mutate(tree = as.character(tree)) %>% 
+  mutate(site = str_replace(site, "cell tower", "cell"))
 
 #reformat quadrat df 
 quadrat_px_df <- full_df %>% 
   separate(quadrat, into = c("site", "tree", "quadrat"), sep = "_") %>% 
   mutate(tree = str_remove(tree, "t"), quadrat = str_remove(quadrat, "q")) %>% 
-  select(r, g, b, site, tree, quadrat, orange_index)
+  dplyr::select(r, g, b, site, tree, quadrat, orange_index)
 
 quadrat_px_df_test <- quadrat_px_df %>% 
   mutate(tree = str_remove(tree, "t"), quadrat = str_remove(quadrat, "q")) %>% 
-  select(r, g, b, site, tree, quadrat, orange_index) %>% 
+  dplyr::select(r, g, b, site, tree, quadrat, orange_index) %>% 
   group_by(site, tree, quadrat) %>% 
   summarize(sum_index = sum(orange_index))
   
@@ -151,4 +159,5 @@ cones_px_df <- quadrat_px_df_test %>%
 ggplot(cones_px_df) +
   aes(x = total_cones, y = sum_index, col = site) +
   geom_point() +
-  geom_smooth(method = "lm", se = FALSE)
+  geom_smooth(method = "lm", se = FALSE) + 
+  ggthemes::theme_few()
