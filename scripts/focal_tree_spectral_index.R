@@ -1,5 +1,17 @@
 ##script to apply the index only to the trees that we have cone counts for!!!
 
+#load libraries
+library(terra)
+library(tidyverse)
+library(dplyr)
+library(lidR)
+library(sf)
+library(raster)
+library(stars)
+library(randomForest)
+library(ranger)
+library(tools)
+
 #load in orthos
 
 setwd("C:/Users/hmz25/Desktop/")
@@ -19,7 +31,7 @@ for (i in seq_along(ortho_files)) {
 
 #plotRGB(Williamson_20240104)
 
-#load in shapefiles   
+#load in shape files   
 
 shp_dir <- "TX 2024 analysis/qgis/focal_trees_shp"
 list.files(shp_dir)
@@ -227,5 +239,5 @@ quadrat_cones %>%
   group_by(date, site, tree) %>% 
   summarise(avg_cones_per_pix = mean(cones_per_pix, na.rm=T)) 
 
-#need to figure out what datapoints i actually want to fall on the graphs and do the data manipulation that way
+#need to figure out what data points i actually want to fall on the graphs and do the data manipulation that way
 ## sum of spectral reading vs sum cones based on site and on tree? I think that's what I want 

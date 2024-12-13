@@ -14,6 +14,9 @@ library(stringr)
 library(randomForest)
 library(lubridate)
 library(ggplot2)
+library(janitor)
+# install.packages("hms")
+library(hms)
 
 
 # set working directory ---------------------------------------------------
@@ -136,6 +139,7 @@ training_df <- bind_rows(sup_not_twig_df, sup_yes_twig_df) %>%
 # str(training_df)
 
 #run a pixel-based classifier
+set.seed(100)
 rf_mask <- randomForest(class ~ ., data = training_df, na.action=na.omit)
 rf_mask
 
@@ -187,8 +191,8 @@ plot(photo_i)
 # }
 
 
+# calculate rgb values and an index for each photo ------------------------
 
-### calculate rgb values and an index for each photo ####
 photo_dir <- "Box/texas/pollen_production/TX jan 24/data analysis/cropped masked eye level/"
 photo_list <- list.files(photo_dir, full.names = FALSE)
 photo_list_full_dir <- list.files(photo_dir, full.names = TRUE)
@@ -225,6 +229,8 @@ for(i in 1:length(photo_list)){
   print(i)
 }
 
+
+# combine cone + spectral data frames to analyze index --------------------
 
 
 #add values to dataframe that has the number of cones per quadrat
@@ -272,13 +278,147 @@ cor(quadrat_cones_rgb_test)
 quadrat_cones_rgb_test %>% dplyr::select(10:23, - photo_list.i.) %>% 
   PerformanceAnalytics::chart.Correlation(.)
 
+# test <- raster::stack("Box/texas/pollen_production/TX jan 24/data analysis/cropped masked eye level/kimble_t6_q7.tif")
+# plot(test)
+# 
+# test2 <- test
+# test2[[1]][test2[[4]] == 1] <- NA
+# test2[[2]][test2[[4]] == 1] <- NA
+# test2_index_rg_dif <- (test2[[1]] - test2[[2]])/(test2[[1]] + test2[[2]])
+# 
+# plot(test2_index_rg_dif)
 
-test <- raster::stack("C:/Users/dsk273/Box/texas/pollen_production/TX jan 24/data analysis/cropped masked eye level/kimble_t6_q7.tif")
-plot(test)
 
-test2 <- test
-test2[[1]][test2[[4]] == 1] <- NA
-test2[[2]][test2[[4]] == 1] <- NA
-test2_index_rg_dif <- (test2[[1]] - test2[[2]])/(test2[[1]] + test2[[2]])
+# visualizing how phenology impacts the spectral index --------------------
 
-plot(test2_index_rg_dif)
+#are we going to have an issue where we can't analyze how pheno impacts the index bc we don't have repeated handheld pics for focal trees? 
+
+#load in phenology data from field maps
+fieldmaps_pheno_csv <- read_csv("Box/texas/pollen_production/TX jan 24/data analysis/fieldmaps_pheno.csv")
+
+pheno_csv <- fieldmaps_pheno_csv %>% 
+  dplyr::select(date_and_t, misc, pheno, site, tree_n) %>% 
+  dplyr::select(site, tree_n, date_and_t, pheno, everything()) %>% 
+  filter(!is.na(site), !is.na(tree_n)) %>% 
+  rename(tree = tree_n,
+         date = date_and_t) %>% 
+  mutate(site = str_replace(site, "Berber", "glimmer"),
+         site = tolower(site),
+         site = substr(site, 1, 4),
+         date = mdy(date)) 
+
+#join phenology data with cone density data
+pheno_cone_density_df <- quadrat_cones_rgb_test %>% 
+  mutate(tree = as.character(tree)) %>% 
+  left_join(pheno_csv, by = c("site", "tree", "date")) %>% 
+  dplyr::select(date, site, tree, quadrat, total_cones, photo_i_index_rg_thresh_sum, pheno) %>% 
+  separate(pheno, into = c("percent_cones_open", "pollen_release"), sep = "%") 
+
+#create df with binned pheno measurements 
+pheno_cone_density_sub <- pheno_cone_density_df %>%
+  filter(!is.na(percent_cones_open)) %>%
+  mutate(pheno = case_when(percent_cones_open <= 25 ~ "<=25",
+                           percent_cones_open > 25 & percent_cones_open <= 50 ~ "25-50",
+                           percent_cones_open > 50 & percent_cones_open <= 75 ~ "50-75",
+                           percent_cones_open > 75 ~ "> 75"))
+
+#visualize how phenology impacts performance of spectral index 
+ggplot(pheno_cone_density_sub, aes(x=photo_i_index_rg_thresh_sum, y = total_cones/(0.25*0.25), col = pheno)) + 
+  geom_point(alpha = 0.5) + 
+  theme_bw() + 
+  geom_smooth(method = "lm", se = FALSE) +
+  xlab("spectral index") + 
+  ylab(cone~density~(cones/m^2)) + 
+  ggtitle("index performance based on phenology") +
+  ggthemes::theme_few() +
+  scale_colour_discrete(limits = c("<=25", "25-50", "> 75"),
+                        name = "pheno (percent cones open)",
+                        labels = c("<=25", "25-75", "> 75")) #no focal tree data w cones open btwn 50-75
+
+
+# visualize cone density vs spectral index based on time of day -----------
+
+#load in time metadata
+time_metadata <- read_csv("Box/texas/pollen_production/TX jan 24/data analysis/2024 TX drone pics time metadata.csv")
+# time_metadata
+
+time_metadata <- time_metadata %>%
+  clean_names() %>%
+  dplyr::select(site, date, time, tree) %>%
+  filter(!is.na(tree)) %>%
+  mutate(site = substring(site, 1, 4),
+         date = mdy(date))
+
+#join time metadata w cone density data 
+tod_cone_density_df <- quadrat_cones_rgb_test %>%  
+  left_join(time_metadata, by = c("site", "date", "tree")) %>% 
+  dplyr::select(date, site, tree, quadrat, total_cones, photo_i_index_rg_thresh_sum, time) 
+
+#bin time of day by proximity to solar noon (which is ~12:30 in TX in jan)
+solar_noon_cone_df <- tod_cone_density_df %>% 
+  mutate(solar_noon = case_when(
+    time <= as_hms("10:30:00") ~ "> 2 hrs before",
+    time > as_hms("10:30:00") & time <= as_hms("14:30:00") ~ "within 2 hrs",
+    time > as_hms("14:30:00") ~ "> 2 hrs after"))
+
+#visualize how time of day impacts spectral index performance
+ggplot(solar_noon_cone_df, aes(x=photo_i_index_rg_thresh_sum, y = total_cones/(0.25*0.25), col = solar_noon)) + 
+  geom_point(alpha = 0.5) + 
+  theme_bw() + 
+  geom_smooth(method = "lm", se = FALSE) +
+  xlab("spectral index") + 
+  ylab(cone~density~(cones/m^2)) + 
+  ggtitle("index performance at different times of day") +
+  ggthemes::theme_few() +
+  scale_colour_discrete(name = "time to solar noon")
+
+
+# visualize how sky conditions impact performance of spectral index -------
+
+#load in data from RTMA NOAA data (retrieved from google earth engine, downloaded to CSV) 
+cloud_cover_df <- read_csv("Box/texas/pollen_production/TX jan 24/data analysis/TX_cloud_cover_2024.csv")
+
+cloud_cover_hr <- cloud_cover_df %>% 
+  group_by(site, date) %>%  
+  mutate(time = as_hms((row_number() - 1) * 3600)) %>%  #convert to hours from midnight
+  ungroup() %>% 
+  dplyr::select(cloud_cover, site, date, time) %>% 
+  mutate(site = substr(site, 1, 4))
+
+# library(fuzzyjoin)
+
+# test_df <- tod_cone_density_df %>%
+#   fuzzy_left_join(
+#     cloud_cover_hr,
+#     by = c("site", "date", "time"),
+#     match_fun = list(`==`, `==`, ~ abs(as.numeric(.x - .y)) <= 500)
+#   )
+
+# tod_cone_density_df_rounded <- tod_cone_density_df %>% 
+#   mutate(rounded_time = round_date(as.POSIXct(time, format = "%H:%M:%S"), unit = "hour"))
+
+tod_cone_density_df_rounded <- tod_cone_density_df %>% 
+  mutate(rounded_time = as_hms(round(as.numeric(time) / 3600) * 3600)) %>% #divide by 3600 (seconds per hour), round the result, and multiply back by 3600 to get seconds rounded to the nearest hour.
+  dplyr::select(-time) %>% 
+  rename(time = rounded_time)
+
+cloud_cover_cone_density <- tod_cone_density_df_rounded %>% 
+  left_join(cloud_cover_hr, by = c("site", "date", "time")) %>% 
+  mutate(percent_cloud = case_when(
+    cloud_cover <= 25 ~ "< 25%",
+    cloud_cover > 25 & cloud_cover <= 50 ~ "25-50%",
+    cloud_cover > 50 & cloud_cover <= 75 ~ "50-75%",
+    cloud_cover > 75 ~ "> 75%"))
+
+#visualize how cloud cover impacts spectral index
+ggplot(cloud_cover_cone_density, aes(x=photo_i_index_rg_thresh_sum, y = total_cones/(0.25*0.25), col = percent_cloud)) + 
+  geom_point(alpha = 0.5) + 
+  theme_bw() + 
+  geom_smooth(method = "lm", se = FALSE) +
+  xlab("spectral index") + 
+  ylab(cone~density~(cones/m^2)) + 
+  ggtitle("index performance under different cloud cover") +
+  ggthemes::theme_few() +
+  scale_colour_discrete(limits = c("< 25%", "25-50%", "50-75%", "> 75%"),
+                        name = "percent cloud cover")
+  
