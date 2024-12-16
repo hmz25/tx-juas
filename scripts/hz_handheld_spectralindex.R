@@ -17,6 +17,8 @@ library(ggplot2)
 library(janitor)
 # install.packages("hms")
 library(hms)
+#install.packages("ggpubr")
+library(ggpubr)
 
 
 # set working directory ---------------------------------------------------
@@ -30,10 +32,10 @@ setwd("C:/Users/hmz25")
 
 #add in cone density per quadrat data
 
-quadrat_cones <- read_csv("Box/texas/pollen_production/TX jan 24/data analysis/2024_quadratcones.csv")
+quadrat_cone_raw <- read_csv("Box/texas/pollen_production/TX jan 24/data analysis/2024_quadratcones.csv")
 
 #add cones per weight columns
-quadrat_cones <- quadrat_cones %>%
+quadrat_cones <- quadrat_cone_raw %>%
   dplyr::select(date_collected,
          site,
          tree,
@@ -44,11 +46,11 @@ quadrat_cones <- quadrat_cones %>%
          s3_count, s3_weight,
          s4_count, s4_weight,
          s5_count, s5_weight) %>%
-  mutate(s1 = (quadrat_cones$s1_count/quadrat_cones$s1_weight),
-         s2 = (quadrat_cones$s2_count/quadrat_cones$s2_weight),
-         s3 = (quadrat_cones$s3_count/quadrat_cones$s3_weight),
-         s4 = (quadrat_cones$s4_count/quadrat_cones$s4_weight),
-         s5 = (quadrat_cones$s5_count/quadrat_cones$s5_weight))  
+  mutate(s1 = (quadrat_cone_raw$s1_count/quadrat_cone_raw$s1_weight),
+         s2 = (quadrat_cone_raw$s2_count/quadrat_cone_raw$s2_weight),
+         s3 = (quadrat_cone_raw$s3_count/quadrat_cone_raw$s3_weight),
+         s4 = (quadrat_cone_raw$s4_count/quadrat_cone_raw$s4_weight),
+         s5 = (quadrat_cone_raw$s5_count/quadrat_cone_raw$s5_weight))  
 
 #take mean of cone per weight for each quadrat
 quadrat_cones <- quadrat_cones %>%
@@ -333,7 +335,8 @@ ggplot(pheno_cone_density_sub, aes(x=photo_i_index_rg_thresh_sum, y = total_cone
   ggthemes::theme_few() +
   scale_colour_discrete(limits = c("<=25", "25-50", "> 75"),
                         name = "pheno (percent cones open)",
-                        labels = c("<=25", "25-75", "> 75")) #no focal tree data w cones open btwn 50-75
+                        labels = c("<=25", "25-75", "> 75")) + #no focal tree data w cones open btwn 50-75
+  stat_cor(aes(label = ..rr.label..))
 
 
 # visualize cone density vs spectral index based on time of day -----------
@@ -370,7 +373,8 @@ ggplot(solar_noon_cone_df, aes(x=photo_i_index_rg_thresh_sum, y = total_cones/(0
   ylab(cone~density~(cones/m^2)) + 
   ggtitle("index performance at different times of day") +
   ggthemes::theme_few() +
-  scale_colour_discrete(name = "time to solar noon")
+  scale_colour_discrete(name = "time to solar noon") +
+  stat_cor(aes(label = ..rr.label..))
 
 
 # visualize how sky conditions impact performance of spectral index -------
@@ -420,5 +424,19 @@ ggplot(cloud_cover_cone_density, aes(x=photo_i_index_rg_thresh_sum, y = total_co
   ggtitle("index performance under different cloud cover") +
   ggthemes::theme_few() +
   scale_colour_discrete(limits = c("< 25%", "25-50%", "50-75%", "> 75%"),
-                        name = "percent cloud cover")
-  
+                        name = "percent cloud cover") +
+  stat_cor(aes(label = ..rr.label..))
+
+install.packages("ggpubr")
+library(ggpubr)
+
+
+# see how index fit changes if using weight instead of area of qua --------
+ggplot(quadrat_cones_rgb_test, aes(x=photo_i_index_rg_thresh_sum, y = total_cones/total_mass)) + #, col = site))  
+  geom_point(alpha = 0.5) + 
+  theme_bw() + 
+  geom_smooth(method = "lm", se = FALSE) +
+  xlab("spectral index") + ylab(cone~density~(cones/g)) + ggthemes::theme_few() +
+  stat_cor(aes(label = ..rr.label..))
+
+
