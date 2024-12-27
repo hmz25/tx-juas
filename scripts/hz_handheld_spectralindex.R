@@ -431,12 +431,26 @@ install.packages("ggpubr")
 library(ggpubr)
 
 
-# see how index fit changes if using weight instead of area of qua --------
-ggplot(quadrat_cones_rgb_test, aes(x=photo_i_index_rg_thresh_sum, y = total_cones/total_mass)) + #, col = site))  
-  geom_point(alpha = 0.5) + 
-  theme_bw() + 
-  geom_smooth(method = "lm", se = FALSE) +
-  xlab("spectral index") + ylab(cone~density~(cones/g)) + ggthemes::theme_few() +
-  stat_cor(aes(label = ..rr.label..))
+# see how index fit changes if using weight instead of area of quadrats --------
+# quadrat_cone_raw <- quadrat_cone_raw %>% 
+#   mutate(site = substr(site, 1, 4)) %>% 
+#   rename("date" = "date_collected") %>% 
+#   mutate(date = mdy(date))
+# 
+# str(quadrat_cone_raw)
+# 
+# test1 <- quadrat_cones_rgb_test %>% 
+#   left_join(quadrat_cone_raw, by = c("date", "site", "tree", "quadrat"))
+# 
+# test1 <- test1 %>% 
+#   mutate(total_cone_count = s1_count + s2_count+ s3_count + s4_count + s5_count) %>% 
+#   mutate(cones_per_g = total_cone_count*total_mass.x)
+# 
+# ggplot(test1, aes(x=photo_i_index_rg_thresh_sum, y = cones_per_g)) + #, col = site))  
+#   geom_point(alpha = 0.5) + 
+#   theme_bw() + 
+#   geom_smooth(method = "lm", se = FALSE) +
+#   xlab("spectral index") + ylab(cone~density~(cones/g)) + ggthemes::theme_few() +
+#   stat_cor(aes(label = ..rr.label..))
 
 
