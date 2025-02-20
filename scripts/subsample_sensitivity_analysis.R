@@ -94,4 +94,16 @@ ggplot(simulation_results, aes(x = subsample_size, y = se_est, group = tree_id, 
   labs(title = "effect of subsample size on SE", x = "subsample n", y = "estimated SE") +
   theme_minimal()
 
+#visualize how sd changes
+# ggplot(simulation_results, aes(x = subsample_size, y = sd_est, group = tree_id, color = tree_id)) +
+#   geom_line() +
+#   geom_point() +
+#   labs(title = "effect of subsample size on SD", x = "subsample n", y = "estimated SD") +
+#   theme_minimal()
+
+##WHY DOES SD GET LARGER WITH HIGER NUM OF SUBSAMPLES
+
+ggplot(ten_samples_clean) +
+  geom_boxplot(aes(y = count_per_weight, col = tree_id))
+
 
