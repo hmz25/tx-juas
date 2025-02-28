@@ -6,15 +6,14 @@ setwd("/Users/hannahzonnevylle/Library/CloudStorage/Box-Box/")
 #load in foliar moisture data 
 fm_df <- read_csv("Katz lab/texas/cone processing 25 - foliar moisture.csv")
 
-fm_df_clean <- fm_df |> 
-  filter(!(is.na(twig_dry_weight_bag) & 
-             is.na(twig_dry_weight_nobag) & 
-             is.na(foliage_dry_weight_bag) & 
-             is.na(foliage_dry_weight_nobag)))
+# fm_df_clean <- fm_df |> 
+#   filter(!(is.na(twig_dry_weight_bag) & 
+#              is.na(twig_dry_weight_nobag) & 
+#              is.na(foliage_dry_weight_bag) & 
+#              is.na(foliage_dry_weight_nobag) ))
 
 #create data frame for twig weights
 twig_df <- fm_df_clean |> 
-  filter(!is.na(twig_dry_weight_bag) | !is.na(twig_dry_weight_nobag)) |> 
   select(-c(cones_wet_weight, 
             foliage_wet_weight,
             date_oven, 
@@ -36,7 +35,6 @@ twig_df <- twig_df |>
   
 #create data frame for foliage weights 
 fol_df <- fm_df_clean |> 
-  filter(!is.na(foliage_dry_weight_bag) | !is.na(foliage_dry_weight_nobag)) |> 
   select(-c(cones_wet_weight, 
             twig_wet_weight,
             date_oven, 
@@ -54,8 +52,10 @@ fol_df <- fol_df |>
 
 ggplot(fol_df) +
   geom_boxplot(aes(x = site, y = perc_water, col = site)) + 
-  theme_classic()
+  theme_classic() + 
+  labs(title = "foliage % moisture")
 
 ggplot(twig_df) +
   geom_boxplot(aes(x = site, y = perc_water, col = site)) +
-  theme_classic()
+  theme_classic() +
+  labs(title = "twig % moisture")
