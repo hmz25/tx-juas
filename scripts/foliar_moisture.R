@@ -13,7 +13,7 @@ fm_df <- read_csv("Katz lab/texas/cone processing 25 - foliar moisture.csv")
 #              is.na(foliage_dry_weight_nobag) ))
 
 #create data frame for twig weights
-twig_df <- fm_df_clean |> 
+twig_df <- fm_df |> 
   select(-c(cones_wet_weight, 
             foliage_wet_weight,
             date_oven, 
@@ -34,7 +34,7 @@ twig_df <- twig_df |>
 #texas tough = 8.93
   
 #create data frame for foliage weights 
-fol_df <- fm_df_clean |> 
+fol_df <- fm_df |> 
   select(-c(cones_wet_weight, 
             twig_wet_weight,
             date_oven, 
