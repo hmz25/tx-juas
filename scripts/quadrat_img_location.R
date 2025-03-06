@@ -6,7 +6,7 @@ library(exifr)# install.packages("exifr")
 library(dplyr)
 
 #load in shape file
-shp <- st_read("Katz lab/texas/focal_trees_2025_shp/focal_trees.shp")
+shp <- st_read("Katz lab/texas/focal_trees_2025_shp/focal_trees_2025_shp.shp")
 
 #select site for analysis
 shp_clean <- shp |> 
@@ -16,7 +16,7 @@ site_df <- shp_clean |>
   filter(site == "gun") 
 
 #extract GPS data from images
-image_folder <- "/Volumes/Seagate Portable/DJI_202501051257_151_gunsiteboundary-copy"
+image_folder <- "/Volumes/Seagate Portable/DJI_202501131305_179_gunsiteboundary"
 image_files <- list.files(image_folder, pattern = "\\.JPG$", full.names = TRUE)
 
 exif_data <- read_exif(image_files, tags = c("GPSLongitude", "GPSLatitude", "FileName"))
@@ -49,6 +49,6 @@ images_with_trees <- st_join(image_sf, site_df, join = st_is_within_distance, di
 
 #filter overlapping images
 img_overlap <- images_with_trees %>%
-  select(FileName, focal_tree) %>%
+  dplyr::select(FileName, focal_tree) %>%
   filter(!is.na(focal_tree))
 
