@@ -59,61 +59,17 @@ ggplot(cone_df_clean, aes(x = as.factor(tree), y = count)) +
 # }
 
 #load in quadrat pics
-img_folder <- "/Users/hannahzonnevylle/Desktop/quadrat pics 2025/extra_filtered" #this is the folder that only contains pixels that we are sure are cones/foliage 
+# img_folder <- "/Users/hannahzonnevylle/Desktop/quadrat pics 2025/manually_filtered"  
+# img_list <- list.files(img_folder, pattern = "_filt2\\.tif$", full.names = FALSE) #only load imgs containing pixels that we are sure are cones/foliage
+# img_list_dir <- list.files(img_folder, pattern = "_filt2\\.tif$", full.names = TRUE)
+
+img_folder <- "/Users/hannahzonnevylle/Desktop/quadrat pics 2025/best_quadrats"
 img_list <- list.files(img_folder, full.names = FALSE)
 img_list_dir <- list.files(img_folder, full.names = TRUE)
 
-# test <- rast("/Users/hannahzonnevylle/Library/CloudStorage/Box-Box/Katz lab/texas/tx 2025 drone pics/cropped_quadrat_pics/cath_t2.tif")
-# plotRGB(test)
-
-# test <- rast(img_list_dir[4])
-# plotRGB(test)
-# 
-# test_df <- as.data.frame(test) |> 
-#   rename(r = 1,
-#          g = 2, 
-#          b = 3)
-# 
-# # ggplot(test_df) +
-# #   geom_histogram(aes(x = r))
-# 
-# test_df_filt <- test_df |> 
-#   mutate(across(c(r, g, b), ~ ifelse(r >= 240 | g >= 240 | b >= 240, NA, .)), #filter out white pixels 
-#          across(c(r, g, b), ~ ifelse(r <= 10 & g <= 10 & b <= 10, NA, .))) #filter out black pixels 
-
-# test <- rast(img_list_dir[8])
-# plotRGB(test)
-# 
-# df <- as.data.frame(test)
-# 
-# names(test) <- c("r", "g", "b")
-# 
-# test_masked <- test
-
-# test_masked[test >= 240] <- NA
-# plotRGB(test_masked)
-# test_masked[test$cath_t3_1 <= 10 & test$cath_t3_2 <= 10 & test$cath_t3_3 <= 10] <- NA
-# plotRGB(test_masked)
-
-# threshFunction <- function(test){
-#   test_masked <- test
-#   test_masked[test >= 240] <- NA
-#   test_masked[test$r <= 10 & test$g <= 10 & test$b <= 10] <- NA
-#   return(test_masked)
-# }
-# 
-# test_function <- threshFunction(test)
-# plotRGB(test_function)
-
-# test_df <- as.data.frame(test_function, na.rm = FALSE)
-
-# i = 9
-# 
-# img_list <- img_list[1:3]
-
 quadrat_px_df <- data.frame()
 
-i = 19
+# i = 19
 
 for (i in seq_along(img_list)) {
   #remove the file extension to use as object name
@@ -151,18 +107,30 @@ for (i in seq_along(img_list)) {
 
 quadrat_px_df
 
+# index_df <- quadrat_px_df |>
+#   group_by(site, tree) |> 
+#   summarize(mean_r = mean(r, na.rm = T),
+#             mean_g = mean(g, na.rm = T),
+#             mean_b = mean(b, na.rm = T))|>
+#   mutate(site = substr(site, 1, 4))
 
-index_df <- quadrat_px_df |> 
-  mutate(orange_index = (r - g) / (r + g)) |> 
-  group_by(site, tree) |> 
-  summarize(
-    mean_index = mean(orange_index, na.rm = TRUE),
-    prop_valid = sum(!is.na(orange_index)) / n()  #proportion of non-NA values
-  ) |> 
-  mutate(
-    site = substr(site, 1, 4),
-    adjusted_mean_index = mean_index * prop_valid #adjusted mean accounting for NA proportion
-  )
+index_df <- quadrat_px_df |>
+  mutate(orange_index = (r - g) / (r + g)) |>
+  group_by(site, tree) |>
+  summarize(mean_index = mean(orange_index, na.rm = TRUE)) |>
+  mutate(site = substr(site, 1, 4))
+
+# index_df <- quadrat_px_df |> 
+#   mutate(orange_index = (r - g) / (r + g)) |> 
+#   group_by(site, tree) |> 
+#   summarize(
+#     mean_index = mean(orange_index, na.rm = TRUE),
+#     prop_valid = sum(!is.na(orange_index)) / n()  #proportion of non-NA values
+#   ) |> 
+#   mutate(
+#     site = substr(site, 1, 4),
+#     adjusted_mean_index = mean_index * prop_valid #adjusted mean accounting for NA proportion
+#   )
 
 
 # combine quadrat pixel data with cone count data -------------------------
@@ -175,21 +143,55 @@ index_df <- quadrat_px_df |>
 
 total_cone_df <- cone_df_clean |> 
   mutate(cones_per_g = count/weight) |> 
-  group_by(tree, site, total_mass) |> 
+  group_by(date_collected, tree, site, total_mass) |> 
   summarize(mean_cones_per_g = mean(cones_per_g)) |> 
   mutate(total_cones = mean_cones_per_g*total_mass) |> 
   mutate(tree = as.character(tree))
 
-cone_px_df <- left_join(index_df, total_cone_df)
+cone_index_df <- left_join(index_df, total_cone_df)
 
-#visualize data
-ggplot(cone_px_df, aes(x = mean_index, y = total_cones, col = site)) + 
+cone_px_df <- left_join(quadrat_px_df, total_cone_df)
+
+# ggplot(cone_px_df, aes(x = mean_r, y = mean_cones_per_g, col = site)) + 
+#   geom_point(alpha = 0.5)
+
+#join df with manual pheno data
+
+fieldmaps_df <- read_csv('/Users/hannahzonnevylle/Library/CloudStorage/Box-Box/Katz lab/texas/focal_trees_2025.csv')\
+
+fieldmaps_df_clean <- fieldmaps_df |> 
+  mutate(parsed_datetime = mdy_hms(date_time),  # Convert to datetime format
+         date_collected = format(parsed_datetime, "%m/%d/%Y"),  # Extract and format date
+         time = format(parsed_datetime, "%I:%M:%S %p")) |>   # Extract and format time
+  select(site,
+         focal_tree_number,
+         pollen_cone_density,
+         date_collected) |> 
+  mutate(tree = as.character(focal_tree_number),
+         site = tolower(substr(site, 1, 4))) |> 
+  select(-focal_tree_number) 
+
+# cone_px_df <- merge(cone_px_df, fieldmaps_df_clean)
+
+cone_index_pcd_df <- cone_index_df |> 
+  left_join(fieldmaps_df_clean, join_by(site, tree, closest(date_collected >= date_collected)))
+
+cone_px_pcd_df <- cone_px_df |> 
+  left_join(fieldmaps_df_clean, join_by(site, tree)) |> 
+  select(-date_collected.x, -date_collected.y) |> 
+  drop_na()
+
+
+# visualize data ----------------------------------------------------------
+
+
+ggplot(cone_index_df, aes(x = mean_index, y = total_cones, col = site)) + 
   geom_point(alpha = 0.5) + 
   theme_bw() + 
   geom_smooth(method = "lm", se = FALSE) +
   xlab("spectral index") + ylab(cone~density~(cones/m^2)) + ggthemes::theme_few()#scale_color_viridis_c()  # + facet_wrap(~site)
 
-ggplot(cone_px_df, aes(x = adjusted_mean_index, y = total_cones)) + 
+ggplot(cone_index_df, aes(x = mean_index, y = total_cones)) + 
   geom_point(alpha = 0.5) + 
   theme_bw() + 
   geom_smooth(method = "lm", se = FALSE) +
@@ -205,6 +207,22 @@ ggplot(cone_px_df, aes(x = adjusted_mean_index, y = total_cones)) +
 #   geom_smooth(method = "lm", se = FALSE) +
 #   xlab("spectral index") + ylab(cone~density~(cones/m^2)) + ggthemes::theme_few()
 
-fit <- lm(cone_px_df$total_cones  ~ cone_px_df$mean_index)
+fit <- lm(cone_index_df$total_cones  ~ cone_index_df$mean_index)
 summary(fit)
+
+df_long <- cone_px_pcd_df %>%
+  pivot_longer(cols = c(r, g, b), names_to = "color_channel", values_to = "value") |> 
+  mutate(pollen_cone_density = factor(pollen_cone_density, levels = c("low", "low-medium", "medium", "medium-high", "high", "very high")))
+
+#plot faceted histograms
+ggplot(df_long, aes(x = value, fill = color_channel)) +
+  geom_histogram(bins = 30, alpha = 0.6, position = "identity") +
+  facet_wrap(~ pollen_cone_density, scales = "free_y") +  # Facets ordered
+  scale_fill_manual(values = c("r" = "red", "g" = "forestgreen", "b" = "darkblue")) +
+  theme_classic() +
+  labs(title = "distribution of R, G, B values across PCD",
+       x = "RGB value",
+       y = "freq") 
+
+
 

@@ -156,7 +156,7 @@ ggplot() +
   theme_classic() +
   geom_sf(data = tx_counties_smap_reproj, aes(fill = mean)) + 
   scale_fill_viridis(option = "inferno", 
-                     name = "soil moisture", 
+                     expression("soil moisture (m"^3*"/m"^3*")"), 
                      #breaks = seq(0, 0.5, by = 0.025),
                      direction = -1) + 
   geom_point(data = sites_df, aes(x = lon, y = lat), 
