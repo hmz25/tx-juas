@@ -16,9 +16,9 @@ cone_df_clean <- cone_df |>
   rename(name_site = site,
          total_subsample_weight = subsample_weight) |>  
   pivot_longer(
-           cols = starts_with("s"),
-           names_to = c("sample_n", ".value"),
-           names_pattern = "s(\\d+)_(.*)") |> 
+    cols = starts_with("s"),
+    names_to = c("sample_n", ".value"),
+    names_pattern = "s(\\d+)_(.*)") |> 
   mutate(site = substr(name_site, 1, 4)) |> 
   dplyr::select(date_collected, site, tree, total_mass, total_subsample_weight, sample_n, weight, count, notes)
 
@@ -216,6 +216,3 @@ ggplot(df_long, aes(x = value, fill = color_channel)) +
   labs(title = "distribution of R, G, B values across PCD",
        x = "RGB value",
        y = "freq") 
-
-
-
