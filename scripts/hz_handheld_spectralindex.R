@@ -192,7 +192,6 @@ plot(photo_i)
 #   print(i)
 # }
 
-
 # calculate rgb values and an index for each photo ------------------------
 
 photo_dir <- "Box/texas/pollen_production/TX jan 24/data analysis/cropped masked eye level/"
