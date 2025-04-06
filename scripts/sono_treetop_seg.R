@@ -3,7 +3,7 @@ library(raster)
 library(sf)
 
 #read in sonora ortho
-sono_ortho <- brick("C:/Users/hmz25/Documents/pix4d/Sonora_20240109_singlegrid/3_dsm_ortho/2_mosaic/Sonora_20240109_singlegrid_transparent_mosaic_group1.tif")
+sono_ortho <- brick("C:/Users/hmz25/Documents/pix4d/20240109_Sonora_singlegrid/3_dsm_ortho/2_mosaic/20240109_Sonora_singlegrid_transparent_mosaic_group1.tif")
 plotRGB(sono_ortho)
 
 #create subsample of tiff to showcase high and low pcd trees 
@@ -43,7 +43,16 @@ plot(sono_trees_reproj)
 plotRGB(sono_ortho_zoom, r = 1, g = 2, b = 3, stretch = "lin")
 plot(sono_trees_reproj, add = TRUE, border = "white")
 
-filter <- sono_ortho_zoom < 35
+# filter <- sono_ortho_zoom < 35
+# filtered_ortho <- mask(sono_ortho_zoom, filter, maskvalue=1)
+
+names(sono_ortho_zoom) = c("r", "g", "b", "trans")
+
+# rf_prediction <- terra::predict(sono_ortho_zoom, rf_mask_ortho)
+# plot(rf_prediction)
+
+
+filter <- rf_prediction == 1
 filtered_ortho <- mask(sono_ortho_zoom, filter, maskvalue=1)
 
 #plotRGB(filtered_ortho)
@@ -68,7 +77,8 @@ plot(treetop_raster)
 treetop_index <- mask(index_map, treetop_raster)
 
 #define the color ramp from green to orange
-coneColors_palette <- colorRampPalette(c("lightblue", "orangered"))
+# coneColors_palette <- colorRampPalette(c("lightblue", "orangered"))
+coneColors_palette <- colorRampPalette(c("darkgreen", "orange"))
 
 plot(treetop_index, col = coneColors_palette(100), alpha = 1, axes = FALSE, box = FALSE)
 
