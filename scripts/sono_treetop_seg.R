@@ -48,8 +48,8 @@ plot(sono_trees_reproj, add = TRUE, border = "white")
 
 names(sono_ortho_zoom) = c("r", "g", "b", "trans")
 
-# rf_prediction <- terra::predict(sono_ortho_zoom, rf_mask_ortho)
-# plot(rf_prediction)
+rf_prediction <- terra::predict(sono_ortho_zoom, rf_mask_ortho)
+plot(rf_prediction)
 
 
 filter <- rf_prediction == 1

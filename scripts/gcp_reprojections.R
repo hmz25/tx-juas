@@ -57,3 +57,37 @@ for (file in csv_files) {
   # Save results
   write_csv(gcp_sf_reproj_df, output_file)
 }
+
+
+# for 2024 gcps -----------------------------------------------------------
+
+#define input and output directories
+input_dir <- "C:/Users/hmz25/Desktop/Emlid logs"
+output_dir <- "C:/Users/hmz25/Desktop/2024 GCP corrected"
+
+#list all CSV files in the input directory
+csv_files <- list.files(input_dir, pattern = "*.csv", full.names = TRUE)
+
+#file = csv_files[3]
+
+# Loop through each CSV file
+for (file in csv_files) {
+  # Read the GCP file
+  gcp <- read_csv(file)
+  
+  # Create spatial feature from CSV GCP file
+  gcp_sf <- st_as_sf(gcp, coords = c("y", "x"), crs = 4326)
+  
+  # Reproject GCP to be in the same CRS as ortho
+  gcp_sf_reproj <- st_transform(gcp_sf, crs = terra::crs(ortho))
+  
+  # Create df for GCP in correct CRS
+  gcp_sf_reproj_df <- cbind(st_coordinates(gcp_sf_reproj), gcp["z"])
+  
+  # Construct output filename
+  file_name <- tools::file_path_sans_ext(basename(file))
+  output_file <- file.path(output_dir, paste0(file_name, "_corrected.csv"))
+  
+  # Save results
+  write_csv(gcp_sf_reproj_df, output_file)
+}
