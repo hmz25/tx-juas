@@ -17,29 +17,29 @@
 #             y = mean(Longitude),
 #             z = mean(Height))
 
-dir <- "C:/Users/hmz25/Desktop/Emlid logs"
-emlid_list <- list.files(dir, pattern = ".LLH", full.names = FALSE)
-emlid_list_full_dir <- list.files(dir, pattern = ".LLH", full.names = TRUE)
-
-for (i in seq_along(dir)) {
-  
-  # load in each file
-  llh <- read.table(emlid_list[i], 
-                    header = FALSE, sep = "", stringsAsFactors = FALSE)
-  colnames(llh) <- c("Date", "Time", "Latitude", "Longitude", "Height", 
-                     "Q", "ns", "sdn", "sde", "sdu", "sdne", "sdeu", "sdun", "Age", "Ratio")
-  
-  # create csv output for the x, y, z coordiante
-  llh_gcp <- llh %>% 
-    select(Latitude, Longitude, Height) %>% 
-    summarise(x = mean(Latitude),
-              y = mean(Longitude),
-              z = mean(Height))
-  
-  # merge csv files that have the same date into one csv
-  if 
-  # and add a column for number (needed for pix4d)
-}
+# dir <- "C:/Users/hmz25/Desktop/Emlid logs"
+# emlid_list <- list.files(dir, pattern = ".LLH", full.names = FALSE)
+# emlid_list_full_dir <- list.files(dir, pattern = ".LLH", full.names = TRUE)
+# 
+# for (i in seq_along(dir)) {
+#   
+#   # load in each file
+#   llh <- read.table(emlid_list[i], 
+#                     header = FALSE, sep = "", stringsAsFactors = FALSE)
+#   colnames(llh) <- c("Date", "Time", "Latitude", "Longitude", "Height", 
+#                      "Q", "ns", "sdn", "sde", "sdu", "sdne", "sdeu", "sdun", "Age", "Ratio")
+#   
+#   # create csv output for the x, y, z coordiante
+#   llh_gcp <- llh %>% 
+#     select(Latitude, Longitude, Height) %>% 
+#     summarise(x = mean(Latitude),
+#               y = mean(Longitude),
+#               z = mean(Height))
+#   
+#   # merge csv files that have the same date into one csv
+#   if 
+#   # and add a column for number (needed for pix4d)
+# }
 
 # Set the directory
 dir <- "C:/Users/hmz25/Desktop/Emlid logs"
