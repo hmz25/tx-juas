@@ -206,7 +206,9 @@ photo_masked_df <- data.frame()
 
 # i = 22
 
-# photo_i = stack("Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/masked_handheld_quadrat_pics/cath_t10.tif") # high pcd 
+# photo_i = stack("Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/masked_handheld_quadrat_pics/cath_t10.tif") # high pcd
+
+# photo_i = stack("C:/Users/hmz25/Box/Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/masked_handheld_quadrat_pics/fish_t8.tif")
 
 for(i in 1:length(photo_list)){
   photo_i <- stack(photo_list_full_dir[i]) #plot(photo_i) 
@@ -259,7 +261,7 @@ for(i in 1:length(photo_list)){
   photo_i_index_rg_dif <- (photo_i[[1]] - photo_i[[2]])/(photo_i[[1]] + photo_i[[2]]) #calculate index 
   
   # plotRGB(photo_i)
-  # #color_ramp <- colorRampPalette(c("darkgreen", "orange"))
+  # #color_ramp <- colorRampPalette(c("darkgreen","white","orange"))
   # plot(photo_i_index_rg_dif, col = color_ramp(25))
   
   photo_i_rg_dif <- cellStats(photo_i_index_rg_dif, "mean") #take mean index value 
@@ -300,7 +302,7 @@ cone_density_df <- cone_df_clean %>%
          std = sd(cone_per_g)) %>% 
   group_by(site, tree, total_mass) %>% 
   summarize(mean_cone_dens = mean(cone_per_g)) %>% 
-  summarize(total_cones = mean_cone_dens*total_mass) %>% 
+  summarize(total_cones = mean_cone_dens*total_mass) 
 
 
 #join rgb data frame with cone density data frame
@@ -332,6 +334,17 @@ ggplot(quadrat_cones_rgb, aes(x=photo_i_index_rg_thresh_sum, y = total_cones)) +
   theme_bw() + 
   geom_smooth(method = "lm", se = FALSE) +
   xlab("spectral index") + ylab(cone~density~(cones/m^2)) + ggthemes::theme_few()#scale_color_viridis_c()  # + facet_wrap(~site)
+
+#testing just the raw index values without a threshold 
+ggplot(quadrat_cones_rgb, aes(x=photo_i_rg_dif, y = total_cones)) + 
+  geom_point(alpha = 0.5) + 
+  theme_bw() + 
+  geom_smooth(method = "lm", se = FALSE) +
+  xlab("spectral index") + ylab(cone~density~(cones/m^2)) + 
+  ggthemes::theme_few()
+
+mod <- lm(photo_i_rg_dif ~ total_cones, data = quadrat_cones_rgb)
+summary(mod)
 
 quadrat_cones_rgb_test <- quadrat_cones_rgb %>%  
   filter((photo_i_r + photo_i_g + photo_i_b) > 0)
@@ -402,9 +415,57 @@ gun_t5[[1]][gun_t5[[4]] == 1] <- NA #set all red pixel values that are not folia
 gun_t5[[2]][gun_t5[[4]] == 1] <- NA #set all green pixel values that are not foliage/cones to NA
 gun_t5_index <- (gun_t5[[1]] - gun_t5[[2]])/(gun_t5[[1]] + gun_t5[[2]]) #calculate index 
 plot(gun_t5_index, col = color_ramp(25))
+plot(gun_t5_index, col = custom_palette)
 #looks like the yellow ish foliage are making the index value higher
+
+#shadow
+fish_t8 = stack("C:/Users/hmz25/Box/Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/masked_handheld_quadrat_pics/fish_t8.tif")
+fish_t8[[1]][fish_t8[[4]] == 1] <- NA #set all red pixel values that are not foliage/cones to NA
+fish_t8[[2]][fish_t8[[4]] == 1] <- NA #set all green pixel values that are not foliage/cones to NA
+fish_t8_index <- (fish_t8[[1]] - fish_t8[[2]])/(fish_t8[[1]] + fish_t8[[2]]) #calculate index 
+plot(fish_t8_index, col = color_ramp(25))
+plot(fish_t8_index, col = custom_palette)
 
 #v high index, medium pcd
 gun_t4 <- rast("Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/masked_iphone_quadrat_pics/gun_t4.tif")
 plotRGB(gun_t4)
 #some shadow but overall just ver sparse 
+
+#high pcd
+fish_t10 = stack("C:/Users/hmz25/Box/Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/masked_handheld_quadrat_pics/fish_t10.tif")
+fish_t10[[1]][fish_t10[[4]] == 1] <- NA #set all red pixel values that are not foliage/cones to NA
+fish_t10[[2]][fish_t10[[4]] == 1] <- NA #set all green pixel values that are not foliage/cones to NA
+fish_t10_index <- (fish_t10[[1]] - fish_t10[[2]])/(fish_t10[[1]] + fish_t10[[2]]) #calculate index 
+plot(fish_t10_index, col = color_ramp(25))
+
+rock_t1 = stack("C:/Users/hmz25/Box/Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/masked_handheld_quadrat_pics/rock_t1.tif")
+rock_t1[[1]][rock_t1[[4]] == 1] <- NA #set all red pixel values that are not foliage/cones to NA
+rock_t1[[2]][rock_t1[[4]] == 1] <- NA #set all green pixel values that are not foliage/cones to NA
+rock_t1_index <- (rock_t1[[1]] - rock_t1[[2]])/(rock_t1[[1]] + rock_t1[[2]]) #calculate index 
+plot(rock_t1_index, col = color_ramp(25))
+plotRGB(rock_t1)
+plot(rock_t1_index, col = custom_palette)
+
+range_vals <- range(values(fish_t10_index), values(rock_t1_index), na.rm = TRUE)
+plot(fish_t10_index, col = color_ramp(25), zlim = range_vals, main = "Fish T10 Index")
+plot(rock_t1_index, col = color_ramp(25), zlim = range_vals, main = "Rock T1 Index")
+
+#trying out different color scales
+n <- 20
+
+# Split evenly (or slightly biased toward the positive side if needed)
+n_neg <- n / 2
+n_pos <- n / 2
+
+# Colors
+neg_colors <- rep("darkgreen", n_neg)
+# pos_colors <- colorRampPalette(c("orange", "orangered"))(n_pos)
+pos_colors <- rep("orange", n_pos)
+
+# Final palette
+custom_palette <- c(neg_colors, pos_colors)
+
+plot(fish_t10_index, col = custom_palette, zlim = range_vals, main = "Fish T10 Index")
+plot(rock_t1_index, col = custom_palette, zlim = range_vals, main = "Rock T1 Index")
+
+#look up r colors 
