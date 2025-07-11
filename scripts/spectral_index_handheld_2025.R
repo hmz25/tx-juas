@@ -98,13 +98,19 @@ rf_mask <- randomForest(class ~ ., data = training_df, na.action=na.omit)
 rf_mask
 
 #apply model to a single photo
-photo_i <- rast("Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/sono_t8.tif")
+photo_i <- rast("Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/wade_t7.tif")
 #plotRGB(photo_i)
 
 #make sure layer names for picture match the training df column names 
 names(photo_i) <- colnames(training_df)[1:3]
 photo_i_mask <- predict(photo_i, rf_mask)
 plot(photo_i_mask)
+
+# photo_j <- rast("C:/Users/hmz25/Box/Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/fish_t10.tif")
+# plotRGB(photo_j)
+# names(photo_j) <- colnames(training_df)[1:3]
+# photo_j_mask <- predict(photo_j, rf_mask)
+# plot(photo_j_mask)
 
 #add mask layer back to original photo
 photo_i <- c(photo_i, photo_i_mask)
@@ -113,37 +119,56 @@ plot(photo_i)
 # plot(photo_i$r)
 
 # applying rf pixel mask to all handheld drone images and saving in new folder ---------------------
-# photo_dir <- "Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025"
-# photo_list <- list.files(photo_dir, full.names = FALSE)
-# photo_list_full_dir <- list.files(photo_dir, full.names = TRUE)
-# 
-# #i = 20
-# 
-# for(i in 1:length(photo_list)){
-#   photo_i <- raster::stack(photo_list_full_dir[i])  #plotRGB(photo_i)
-# 
-#   photo_i_df <- as.data.frame(photo_i) %>%
-#     rename(c("r" = 1 , "g" = 2, "b" = 3))  #head(photo_i_df)
-# 
-#   photo_i_mask_df <- predict(rf_mask, photo_i_df)
-#   # head(photo_i_mask_df)
-#   # photo_i_df <- photo_i_df %>%
-#   #   mutate(is_foreground = photo_i_mask_df,
-#   #          is_foreground_numeric = case_when( is_foreground == "yes" ~ 1,
-#   #                                             is_foreground == "not" ~ 0))
-#   # #head(photo_i_df)
-# 
-#   photo_i <- addLayer(photo_i, photo_i[[3]])
-#   photo_i[[4]] <- photo_i_mask_df # photo_i_df$is_forground
-# 
-#   save_file_name = paste0("C:/Users/hmz25/Box/Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/masked_handheld_quadrat_pics/",photo_list[i])
-#   raster::writeRaster(photo_i, save_file_name, overwrite = TRUE)
-#   print(i)
+
+#not white balanced pics
+photo_dir <- "Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025"
+photo_list <- list.files(photo_dir, full.names = FALSE, pattern = ".tif")
+photo_list_full_dir <- list.files(photo_dir, full.names = TRUE, pattern = ".tif")
+
+# #white balanced pics
+# photo_dir <- "Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/white_balanced"
+# photo_list <- list.files(photo_dir, full.names = FALSE, pattern = ".tif")
+# photo_list_full_dir <- list.files(photo_dir, full.names = TRUE, pattern = ".tif")
+
+#i = 20
+
+#create new sub folder for masked white balanced pics
+# output_subfolder <- file.path(photo_dir, "masked_white_balanced")
+# if (!dir.exists(output_subfolder)) {
+#   dir.create(output_subfolder, recursive = TRUE, showWarnings = TRUE)
 # }
 
-# kimb_t4 <- raster::stack("C:/Users/hmz25/Box/Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/masked_handheld_quadrat_pics/kimb_t4.tif")
-# plotRGB(kimb_t4)
-# plot(kimb_t4)
+for(i in 1:length(photo_list)){
+  photo_i <- raster::stack(photo_list_full_dir[i])  #plotRGB(photo_i)
+
+  photo_i_df <- as.data.frame(photo_i) %>%
+    rename(c("r" = 1 , "g" = 2, "b" = 3))  #head(photo_i_df)
+
+  photo_i_mask_df <- predict(rf_mask, photo_i_df)
+  # head(photo_i_mask_df)
+  # photo_i_df <- photo_i_df %>%
+  #   mutate(is_foreground = photo_i_mask_df,
+  #          is_foreground_numeric = case_when( is_foreground == "yes" ~ 1,
+  #                                             is_foreground == "not" ~ 0))
+  # #head(photo_i_df)
+
+  photo_i <- addLayer(photo_i, photo_i[[3]])
+  photo_i[[4]] <- photo_i_mask_df # photo_i_df$is_forground
+  
+  #code for not white balanced sub folder
+  save_file_name = paste0("C:/Users/hmz25/Box/Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/masked_handheld_quadrat_pics/",photo_list[i])
+  raster::writeRaster(photo_i, save_file_name, overwrite = TRUE)
+  print(i)
+  
+  # #code for white balanced sub folder
+  # save_file_name <- file.path(output_subfolder, photo_list[i])
+  # raster::writeRaster(photo_i, save_file_name, overwrite = TRUE)
+  # print(i)
+}
+
+kimb_t4 <- raster::stack("C:/Users/hmz25/Box/Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/masked_handheld_quadrat_pics/kimb_t4.tif")
+plotRGB(kimb_t4)
+plot(kimb_t4)
 
 
 # test <- rast("Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/masked_handheld_quadrat_pics/sono_t8.tif")
@@ -156,45 +181,48 @@ plot(photo_i)
 # 
 # fish_t9 <- rast("Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/masked_handheld_quadrat_pics/fish_t9.tif")
 # plotRGB(fish_t9)
-# plot(fish_t8)
+# plot(fish_t9)
 
+#test white balanced folder imgs
+# test3 <- rast("C:/Users/hmz25/Box/Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/white_balanced/masked_white_balanced/cath_t10.tif")
+# plot(test3)
 
-# applying rf pixel mask to all iphone images and saving in new folder -------------------------------------------------
-
-###DO I HAVE TO DO SEPARATE RF FOR IPHONE PICS 
-
-photo_dir <- "Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/iphone_quadrat_pics"
-photo_list <- list.files(photo_dir, full.names = FALSE)
-photo_list_full_dir <- list.files(photo_dir, full.names = TRUE)
-
-#i = 7
-
-for(i in 1:length(photo_list)){
-  photo_i <- raster::stack(photo_list_full_dir[i])  #plotRGB(photo_i)
-  
-  photo_i_df <- as.data.frame(photo_i) %>%
-    rename(c("r" = 1 , "g" = 2, "b" = 3))   #head(photo_i_df)
-  
-  photo_i_mask_df <- predict(rf_mask, photo_i_df)
-  # head(photo_i_mask_df)
-  # photo_i_df <- photo_i_df %>%
-  #   mutate(is_foreground = photo_i_mask_df,
-  #          is_foreground_numeric = case_when( is_foreground == "yes" ~ 1,
-  #                                             is_foreground == "not" ~ 0))
-  # #head(photo_i_df)
-  
-  photo_i <- addLayer(photo_i, photo_i[[3]])
-  photo_i[[4]] <- photo_i_mask_df # photo_i_df$is_forground
-  # plot(photo_i)
-  
-  save_file_name = paste0("C:/Users/hmz25/Box/Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/masked_iphone_quadrat_pics/",photo_list[i])
-  raster::writeRaster(photo_i, save_file_name, overwrite = TRUE)
-  print(i)
-}
-
-# cath_t5 <- rast("Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/masked_iphone_quadrat_pics/cath_t5.tif")
-# plotRGB(cath_t5)
-# plot(cath_t5)
+# # applying rf pixel mask to all iphone images and saving in new folder -------------------------------------------------
+# 
+# ###DO I HAVE TO DO SEPARATE RF FOR IPHONE PICS 
+# 
+# photo_dir <- "Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/iphone_quadrat_pics"
+# photo_list <- list.files(photo_dir, full.names = FALSE)
+# photo_list_full_dir <- list.files(photo_dir, full.names = TRUE)
+# 
+# #i = 7
+# 
+# for(i in 1:length(photo_list)){
+#   photo_i <- raster::stack(photo_list_full_dir[i])  #plotRGB(photo_i)
+#   
+#   photo_i_df <- as.data.frame(photo_i) %>%
+#     rename(c("r" = 1 , "g" = 2, "b" = 3))   #head(photo_i_df)
+#   
+#   photo_i_mask_df <- predict(rf_mask, photo_i_df)
+#   # head(photo_i_mask_df)
+#   # photo_i_df <- photo_i_df %>%
+#   #   mutate(is_foreground = photo_i_mask_df,
+#   #          is_foreground_numeric = case_when( is_foreground == "yes" ~ 1,
+#   #                                             is_foreground == "not" ~ 0))
+#   # #head(photo_i_df)
+#   
+#   photo_i <- addLayer(photo_i, photo_i[[3]])
+#   photo_i[[4]] <- photo_i_mask_df # photo_i_df$is_forground
+#   # plot(photo_i)
+#   
+#   save_file_name = paste0("C:/Users/hmz25/Box/Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/masked_iphone_quadrat_pics/",photo_list[i])
+#   raster::writeRaster(photo_i, save_file_name, overwrite = TRUE)
+#   print(i)
+# }
+# 
+# # cath_t5 <- rast("Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/masked_iphone_quadrat_pics/cath_t5.tif")
+# # plotRGB(cath_t5)
+# # plot(cath_t5)
 
 # apply index to all masked drone photos -----------------------------------------------
 
@@ -272,8 +300,8 @@ for(i in 1:length(photo_list)){
   photo_i_index_rg_thresh[photo_i_index_rg_dif[] > 0.05] <- 1
   photo_i_index_rg_thresh_mean <- cellStats(photo_i_index_rg_thresh, "mean") #calculate  #plot(photo_i_index_rg_thresh)
   photo_i_index_rg_thresh_sum <- photo_i_index_rg_thresh_mean* 
-    ((ncell(photo_i_index_rg_thresh) - summary(photo_i_index_rg_thresh)[6]) / ncell(photo_i_index_rg_thresh)) #multiply by portion of cells not NA
-  #(ncell(photo_i_index_rg_thresh) - ncell(photo_i_index_rg_thresh, na.omit = TRUE)) #plotRGB(photo_i) #ncell(photo_i) #cellStats(photo_i_index_rg_thresh, "mean")
+    ((ncell(photo_i_index_rg_thresh) - global(is.na(photo_i_index_rg_thresh)[6])) / ncell(photo_i_index_rg_thresh)) #multiply by portion of cells not NA
+  # (ncell(photo_i_index_rg_thresh) - ncell(photo_i_index_rg_thresh, na.omit = TRUE)) #plotRGB(photo_i) #ncell(photo_i) #cellStats(photo_i_index_rg_thresh, "mean")
   
   photo_i_r <- cellStats(photo_i[[1]], "mean")
   photo_i_g <- cellStats(photo_i[[2]], "mean")
