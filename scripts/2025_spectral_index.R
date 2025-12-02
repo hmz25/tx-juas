@@ -60,7 +60,8 @@ ggplot(cone_df_clean, aes(x = as.factor(tree), y = count)) +
 # img_list_dir <- list.files(img_folder, pattern = "_filt2\\.tif$", full.names = TRUE)
 
 #using hand-selected best images
-img_folder <- "/Users/hannahzonnevylle/Desktop/quadrat pics 2025/best_quadrats"
+# img_folder <- "/Users/hannahzonnevylle/Desktop/quadrat pics 2025/best_quadrats"
+img_folder <- "C:/Users/hmz25/Box/Katz lab/texas/tx 2025 drone pics/quadrat pics 2025/best_quadrats"
 img_list <- list.files(img_folder, full.names = FALSE)
 img_list_dir <- list.files(img_folder, full.names = TRUE)
 

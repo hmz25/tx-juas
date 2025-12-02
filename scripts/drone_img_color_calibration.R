@@ -429,7 +429,7 @@ ggplot(ttop_df) +
 # index values in shadow vs not in shadow ---------------------------------
 
 # cones <- rast("C:/Users/hmz25/Box/Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/masked_handheld_quadrat_pics/wind_t4.tif")
-cones <- rast("C:/Users/hmz25/Box/Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/masked_handheld_quadrat_pics/fish_t10.tif")
+cones <- rast("C:/Users/hmz25/Box/Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/masked_handheld_quadrat_pics/fish_t9.tif")
 plotRGB(cones)
 names(cones) <- c("r", "g", "b", "mask")
 
@@ -441,22 +441,160 @@ plotRGB(cones_masked)
 cones_masked$index <- (cones_masked$r-cones_masked$g)/(cones_masked$r+cones_masked$g)
 cones_masked$rg <- (cones_masked$r)/(cones_masked$g)
 plot(cones_masked$index)
-plot(cones_masked$rg)
+terra::plot(cones_masked$rg, zlim = c(0,1))
+terra::plot(cones_masked[["rg"]], zlim = c(0, 3))
 
-cones_masked_df <- as.data.frame(cones_masked)
 
-ggplot() +
-  geom_spatraster(data = cones_masked, aes(fill = rg)) + 
-  scale_fill_manual(limits = 0:1)
+cones_masked_df <- as.data.frame(cones_masked, xy = TRUE, na.rm = FALSE)
 
-# cones$index <- (cones$r-cones$g)/(cones$r+cones$g)
-# cones$rg <- (cones$r)/(cones$g)
-# plot(cones$index)
-# plot(cones$rg)
+# Plot with ggplot
+ggplot(cones_masked_df, aes(x = x, y = y, fill = rg)) +
+  geom_raster() +
+  scale_fill_viridis_c(limits = c(0, 3), name = "rg value") +
+  coord_equal() +
+  theme_classic()
+
 
 #foliage 
+fol <- rast("C:/Users/hmz25/Box/Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/masked_handheld_quadrat_pics/cell_t9.tif")
+plotRGB(fol)
+
+names(fol) <- c("r", "g", "b", "mask")
+
+fol_index <- (fol$r-fol$g)/(fol$r+fol$g)
+plot(fol_index)
+
+#mask out non foliage/cone pixels
+fol_masked <- mask(fol[[1:3]], fol$mask, maskvalues=TRUE)
+plotRGB(fol_masked)
+
+#look at how index changes on cones in shadow vs not in shadow
+fol_masked$index <- (fol_masked$r-fol_masked$g)/(fol_masked$r+fol_masked$g)
+fol_masked$rg <- (fol_masked$r)/(fol_masked$g)
+plot(fol_masked$index)
+
+#how does white balance help shadow pixels
+fol_wb <- rast("C:/Users/hmz25/Box/Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/white_balanced/cell_t9.tif")
+plotRGB(fol_wb)
+
+names(fol_wb) <- c("r", "g", "b")
+fol_wb_index <- (fol_wb$r-fol_wb$g)/(fol_wb$r+fol_wb$g)
+plot(fol_wb_index)
+
+#makes low index values slightly higher but not perfect, will still have to set a cutoff value 
+
+#cones from aerial view
+
+# ortho_cones <- rast("C:/Users/hmz25/Box/Katz lab/texas/tx 2025 drone pics/DJI_202501131305_179_gunsiteboundary/DJI_20250113132209_0805_V.JPG")
+# plotRGB(ortho_cones)
+# 
+# ortho_fol <- rast("C:/Users/hmz25/Box/Katz lab/texas/tx 2025 drone pics/DJI_202501131305_179_gunsiteboundary/DJI_20250113132202_0799_V.JPG")
+# plotRGB(ortho_fol)
+
+setwd("C:/Users/hmz25/Desktop/shadow_analysis")
+
+ortho_cones <- rast("C:/Users/hmz25/Desktop/shadow_analysis/ortho_cones_img.tif")
+plotRGB(ortho_cones)
+
+ortho_fol <- rast("C:/Users/hmz25/Desktop/shadow_analysis/ortho_fol_img.tif")
+plotRGB(ortho_fol)
+
+#crop
+
+cones_shp <- st_read("C:/Users/hmz25/Desktop/shadow_analysis/ortho_cones.shp")
+plot(cones_shp, add = TRUE, col = "red")
+
+ortho_cones <- crop(ortho_cones, cones_shp)
+plotRGB(ortho_cones)
+
+fol_shp <- st_read("C:/Users/hmz25/Desktop/shadow_analysis/ortho_fol.shp")
+plot(fol_shp, add = TRUE, col = "red")
+
+ortho_fol <- crop(ortho_fol, fol_shp)
+plotRGB(ortho_fol)
+
+#mask
+
+ortho_cones <- mask(ortho_cones, cones_shp)
+plotRGB(ortho_cones)
+
+ortho_fol <- mask(ortho_fol, fol_shp)
+plotRGB(ortho_fol)
+
+names(ortho_cones) <- c("r", "g", "b")
+names(ortho_fol) <- c("r", "g", "b")
+
+# #apply both rfs (trained on handheld vs orthos) to see how they differ?
+# ortho_cones_mask <- predict(ortho_cones, rf_mask)
+# plot(ortho_cones_mask)
+# 
+# ortho_cones_masked <- terra::mask(ortho_cones, ortho_cones_mask, maskvalues = TRUE)
+# plotRGB(ortho_cones_masked)
+
+#apply rf trained on the ortho images
+# ortho_cones_mask2 <- predict(ortho_cones, rf_mask_ortho)
+# plot(ortho_cones_mask2)
+##this rf removes a LOT more pixels, especially ones in shadow 
+
+#apply index to see how the values change in shadow vs in light 
+
+ortho_cones$index <- (ortho_cones$r-ortho_cones$g)/(ortho_cones$r+ortho_cones$g)
+plot(ortho_cones$index)
+
+ortho_fol$index <- (ortho_fol$r-ortho_fol$g)/(ortho_fol$r+ortho_fol$g)
+plot(ortho_fol$index)
+
 
 # cone index values thru season -------------------------------------------
 
+jan3 <- rast("C:/Users/hmz25/Box/Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/iphone_quadrat_pics/fish_jan3.tif")
+plotRGB(jan3)
 
+jan10 <- rast("C:/Users/hmz25/Box/Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/iphone_quadrat_pics/fish_jan10.tif")
+plotRGB(jan10)
 
+#try to write a function for renaming and creating the index 
+# name_cols <- c("r", "g", "b")
+# names(jan3) <- name_cols
+
+# process_img <- function(img, rf){
+#   names(img) <- c("r", "g", "b")
+#   img_masked <- predict(img, rf)
+#   img_masked$index <- (img$r-img$g)/(img$r+img$g)
+# }
+# test <- process_img(jan3, rf = rf_mask)
+# plot(test)
+
+names(jan3) <- c("r", "g", "b")
+names(jan10) <- c("r", "g", "b")
+
+jan3$index <- (jan3$r-jan3$g)/(jan3$r+jan3$g)
+plot(jan3$index)
+
+jan10$index <- (jan10$r-jan10$g)/(jan10$r+jan10$g)
+plot(jan10$index)
+
+jan6 <- rast("C:/Users/hmz25/Box/Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/white_balanced/swee_t2.tif")
+plotRGB(jan6)
+
+jan15 <- rast("C:/Users/hmz25/Box/Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/white_balanced/swee_t9.tif")
+plotRGB(jan15)
+
+names(jan6) <- c("r", "g", "b")
+names(jan15) <- c("r", "g", "b")
+
+jan6_mask <- predict(jan6, rf_mask)
+plot(jan6_mask)
+
+jan6_masked <- mask(jan6, jan6_mask, maskvalues = TRUE)
+plotRGB(jan6_masked, main = "jan 6")
+
+jan15_mask <- predict(jan15, rf_mask)
+jan15_masked <- mask(jan15, jan15_mask, maskvalues = TRUE)
+plotRGB(jan15_masked)
+
+jan6_masked$index <- (jan6_masked$r-jan6_masked$g)/(jan6_masked$r+jan6_masked$g)
+plot(jan6_masked$index, main = "jan 6")
+
+jan15_masked$index <- (jan15_masked$r-jan15_masked$g)/(jan15_masked$r+jan15_masked$g)
+plot(jan15_masked$index, main = "jan 15")

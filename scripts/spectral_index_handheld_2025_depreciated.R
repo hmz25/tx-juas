@@ -1,8 +1,3 @@
-#script to apply index to processed handheld images and compare to manual cone density data 
-
-##to see how images were processed, refer to "process_handheld_imgs"
-##or "process_handheld_imgs_wb" scripts 
-
 library(tidyverse)
 library(dplyr)
 library(terra)
@@ -144,10 +139,10 @@ photo_list_full_dir <- list.files(photo_dir, full.names = TRUE, pattern = ".tif"
 
 for(i in 1:length(photo_list)){
   photo_i <- raster::stack(photo_list_full_dir[i])  #plotRGB(photo_i)
-
+  
   photo_i_df <- as.data.frame(photo_i) %>%
     rename(c("r" = 1 , "g" = 2, "b" = 3))  #head(photo_i_df)
-
+  
   photo_i_mask_df <- predict(rf_mask, photo_i_df)
   # head(photo_i_mask_df)
   # photo_i_df <- photo_i_df %>%
@@ -155,7 +150,7 @@ for(i in 1:length(photo_list)){
   #          is_foreground_numeric = case_when( is_foreground == "yes" ~ 1,
   #                                             is_foreground == "not" ~ 0))
   # #head(photo_i_df)
-
+  
   photo_i <- addLayer(photo_i, photo_i[[3]])
   photo_i[[4]] <- photo_i_mask_df # photo_i_df$is_forground
   
@@ -261,8 +256,8 @@ cone_density_df <- cone_df_clean %>%
          std = sd(cones_per_g)) %>%
   group_by(site, tree, total_mass) %>%
   summarize(mean_cones_per_g = mean(cones_per_g)) # %>%
-  #don't think I need to do this part bc it would give total cones in the sample, not cones/g
-  #summarize(total_cones = mean_cone_dens*total_mass)
+#don't think I need to do this part bc it would give total cones in the sample, not cones/g
+#summarize(total_cones = mean_cone_dens*total_mass)
 
 # ##this calculates g cone/g foliage
 # ###find avg weight of cones
