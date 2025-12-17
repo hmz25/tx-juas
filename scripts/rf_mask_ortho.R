@@ -1,11 +1,13 @@
 #code to run random forest pixel classifier to filter out pixels that are not foliage or cone
+
 library(randomForest)
 
+setwd("C:/Users/hmz25/Box/")
 
 # orthomosaic rf pixel classifier -----------------------------------------
 
 #load pictures to create training dataset for non-foliage and non-cones
-not_twig <- stack("C:/Users/hmz25/Box/texas/pollen_production/TX jan 24/data analysis/not_ortho.tif")
+not_twig <- stack("texas/pollen_production/TX jan 24/data analysis/not_ortho.tif")
 #plotRGB(not_twig) 
 #not_twig$not_ortho_1 
 #not_twig$not_ortho_1[1:100] #all 255
@@ -18,7 +20,7 @@ not_twig_df <- as.data.frame(not_twig) %>%
 #head(not_twig_df)
 
 #load pictures to create training dataset for foliage and cones
-yes_twig <- stack("C:/Users/hmz25/Box/texas/pollen_production/TX jan 24/data analysis/yes_ortho.tif")
+yes_twig <- stack("texas/pollen_production/TX jan 24/data analysis/yes_ortho.tif")
 #plotRGB(yes_twig) 
 #yes_twig$yes_ortho_1 
 #yes_twig$yes_ortho_1[1:100] #also all 255
@@ -43,7 +45,7 @@ rf_mask_ortho <- randomForest(class ~ ., data = training_df_ortho, na.action=na.
 #rf_mask_ortho
 
 #save rf object
-
+save(rf_mask_ortho, file = "rf_mask_ortho.RData")
 
 
 # handheld image pixel classifier -----------------------------------------
@@ -96,6 +98,9 @@ training_df <- bind_rows(sup_not_twig_df, sup_yes_twig_df) %>%
 set.seed(100)
 rf_mask <- randomForest(class ~ ., data = training_df, na.action=na.omit)
 rf_mask
+
+#save rf mask for handheld imgs
+save(rf_mask, file = "rf_mask_handheld.RData")
 
 
 # iphone pixel classifier -------------------------------------------------

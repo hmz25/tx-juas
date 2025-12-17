@@ -56,6 +56,10 @@ if (!dir.exists(output_subfolder)) {
   dir.create(output_subfolder, recursive = TRUE, showWarnings = TRUE)
 }
 
+#load in rf mask
+rf_mask <- get(load("Katz lab/texas/rf_mask_handheld.RData"))
+# print(rf_mask)
+
 i = 2
 
 for(i in 1:length(photo_list)){
@@ -74,6 +78,7 @@ for(i in 1:length(photo_list)){
   
   photo_i <- addLayer(photo_i, photo_i[[3]])
   photo_i[[4]] <- photo_i_mask_df # photo_i_df$is_forground
+  # plot(photo_i[[4]])
   
   save_file_name = paste0("C:/Users/hmz25/Box/Katz lab/texas/tx 2025 drone pics/handheld quadrat pics 2025/masked_handheld_quadrat_pics/",photo_list[i])
   raster::writeRaster(photo_i, save_file_name, overwrite = TRUE)

@@ -33,6 +33,8 @@ if (!dir.exists(output_subfolder)) {
   dir.create(output_subfolder, recursive = TRUE, showWarnings = TRUE)
 }
 
+#eventually need to add in rf object that has been trained on wb photos
+
 i = 2
 
 for(i in 1:length(photo_list)){
