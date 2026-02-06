@@ -7,7 +7,7 @@ library(randomForest)
 
 setwd("C:/Users/hmz25/Box/")
 
-# orthomosaic rf pixel classifier 2026 -----------------------------------------
+# aerial image rf pixel classifier 2026 -----------------------------------------
 
 #load pictures to create training data set for non-foliage and non-cones
 not_twig <- stack("Katz lab/texas/not_fol_2026.tif")
@@ -71,6 +71,73 @@ global(img_index, fun="sum", na.rm=TRUE)
 
 #save rf object
 save(rf_mask_ortho, file = "rf_mask_2026.RData")
+
+# adjusted aerial image rf pixel classifier 2026 -----------------------------------------
+
+#trained with pixels from images that have been adjusted based on grey balance card 
+
+#load pictures to create training data set for non-foliage and non-cones
+not_twig <- stack("Katz lab/texas/not_fol_adj.tif")
+#plotRGB(not_twig) 
+#not_twig$not_ortho_1 
+#not_twig$not_ortho_1[1:100] #all 255
+
+#dataframe for non-foliage and non-cone pixels
+not_twig_df <- as.data.frame(not_twig) %>%
+  rename(c("r" =1 , "g" = 2, "b" = 3)) %>%
+  filter(r != 255) %>% 
+  mutate(class = "not") 
+#head(not_twig_df)
+
+#load pictures to create training data set for foliage and cones
+yes_twig <- stack("Katz lab/texas/yes_fol_adj.tif")
+#plotRGB(yes_twig) 
+#yes_twig$yes_ortho_1 
+#yes_twig$yes_ortho_1[1:100] #also all 255
+
+#dataframe for foliage and cone pixels
+yes_twig_df <- as.data.frame(yes_twig) %>%
+  rename(c("r" =1 , "g" = 2, "b" = 3)) %>%
+  filter(r != 255) %>% 
+  mutate(class = "yes")  
+#head(yes_twig_df)
+
+#combine training datasets and randomly select pixels from theme
+training_df_ortho <- bind_rows(not_twig_df, yes_twig_df) %>%
+  sample_n(100000, replace = TRUE) %>%
+  mutate(class = as.factor(class))
+#head(training_df_ortho)
+#str(training_df_ortho)
+
+#run a pixel-based classifier
+set.seed(100)
+rf_mask_ortho <- randomForest(class ~ ., data = training_df_ortho, na.action=na.omit)
+#rf_mask_ortho
+
+#test rf on images
+img <- rast("C:/Users/hmz25/Desktop/DJI_20260107140441_0001_V_adj_canopy.jpg")
+plotRGB(img)
+
+#change names of ortho to match rf 
+img <- img[[1:3]]
+names(img) <- c("r", "g", "b")
+
+#run random forest pixel classifier on cropped ortho 
+img_rf <- terra::predict(img, rf_mask_ortho)
+# plot(img_rf)
+
+#filter out pixels that aren't foliage or cones
+filt <- img_rf == 1
+img_filt <- mask(img, filt, maskvalue =1)
+# plotRGB(img_filt)
+
+img_index <- (img_filt$r - img_filt$g)/(img_filt$r + img_filt$g)
+plot(img_index)
+str(img_index)
+global(img_index, fun="sum", na.rm=TRUE)
+
+#save rf object
+save(rf_mask_ortho, file = "rf_mask_adj.RData")
 
 # orthomosaic rf pixel classifier 2025 -----------------------------------------
 
