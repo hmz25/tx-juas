@@ -70,7 +70,7 @@ str(img_index)
 global(img_index, fun="sum", na.rm=TRUE)
 
 #save rf object
-save(rf_mask_ortho, file = "rf_mask_2026.RData")
+save(rf_mask_ortho, file = "Box/Katz lab/texasrf_mask_2026.RData")
 
 # adjusted aerial image rf pixel classifier 2026 -----------------------------------------
 

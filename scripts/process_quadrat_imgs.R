@@ -117,6 +117,22 @@ test <- stack("Katz lab/texas/tx 2026 drone pics/2026 quadrat pics/cropped_quadr
 plotRGB(test)
 plot(test)
 
-test_adj <- stack("Katz lab/texas/tx 2026 drone pics/2026 quadrat pics/cropped_quadrat_pics/masked_cropped_quadrat_pics/cathedral_t8_tree_adj.tif")
-plotRGB(test_adj)
-plot(test_adj)
+test <- stack("Katz lab/texas/tx 2026 drone pics/2026 quadrat pics/cropped_quadrat_pics/masked_cropped_quadrat_pics/fisher_t10_tree.tif")
+plotRGB(test)
+names(test) <- c("r", "g", "b", "rf_mask")
+
+#filter out pixels that aren't foliage or cones 
+test_filt <- mask(test, test$rf_mask, maskvalue = 2, inverse = TRUE)
+plotRGB(test_filt)
+
+#test out to see how to further filter out shadow pixels 
+# shadow_mask <- test_filt$r < 50
+# shadow_mask <- test_filt$b < 15 & test_filt$r < 30
+shadow_mask <- test_filt$b < 10 
+shadow_mask <- test_filt$b < 5 | test_filt$r < 50
+test_filt_shadow <- mask(test_filt, shadow_mask, maskvalue = TRUE, inverse = FALSE)
+plotRGB(test_filt_shadow)
+
+# test_adj <- stack("Katz lab/texas/tx 2026 drone pics/2026 quadrat pics/cropped_quadrat_pics/masked_cropped_quadrat_pics/cathedral_t8_tree_adj.tif")
+# plotRGB(test_adj)
+# plot(test_adj)
