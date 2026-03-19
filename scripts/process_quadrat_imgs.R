@@ -22,11 +22,11 @@ setwd("C:/Users/hmz25/Box/")
 
 # exploring random forest pixel classifier to mask out non cones/non foliage --------
 #load in rf mask (created in rf_mask script)
-rf_mask <- get(load("Katz lab/texas/rf_mask_2026.RData"))
+rf_mask <- get(load("Katz lab/texas/rf_mask_2026_2.RData"))
 # print(rf_mask)
 
 #apply model to a single photo
-photo_i <- rast("Katz lab/texas/tx 2026 drone pics/2026 quadrat pics/cropped_quadrat_pics/cathedral_t3_tree.tif")
+photo_i <- stack("Katz lab/texas/tx 2026 drone pics/2026 quadrat pics/cropped_quadrat_pics/cathedral_t3_tree.tif")
 #plotRGB(photo_i)
 
 #make sure layer names for picture match the training df column names 
@@ -52,7 +52,7 @@ rf_mask_adj <- get(load("Katz lab/texas/rf_mask_adj.RData"))
 photo_i_adj <- rast("Katz lab/texas/tx 2026 drone pics/2026 quadrat pics/cropped_quadrat_pics/cathedral_t8_tree_adj.tif")
 #plotRGB(photo_i_adj)
 
-#make sure layer names for picture match the training df column names 
+#make sure layer names for picture match the training df column names
 names(photo_i_adj) <- c("r", "g", "b")
 photo_i_adj_mask <- predict(photo_i_adj, rf_mask_adj)
 plot(photo_i_adj_mask)
@@ -66,7 +66,7 @@ plot(photo_j_adj_mask)
 #add mask layer back to original photo
 photo_i_adj <- c(photo_i_adj, photo_i_adj_mask)
 plot(photo_i_adj)
-# plot(photo_i_adj$class) 
+# plot(photo_i_adj$class)
 # plot(photo_i_adj$r)
 
 # applying rf pixel classifier to all aerial drone images and saving in new folder ---------------------
@@ -118,6 +118,7 @@ plotRGB(test)
 plot(test)
 
 test <- stack("Katz lab/texas/tx 2026 drone pics/2026 quadrat pics/cropped_quadrat_pics/masked_cropped_quadrat_pics/fisher_t10_tree.tif")
+test <- stack("C:/Users/hmz25/Box/Katz lab/texas/tx 2026 drone pics/2026 quadrat pics/cropped_quadrat_pics/masked_cropped_quadrat_pics/kimble_female.tif")
 plotRGB(test)
 names(test) <- c("r", "g", "b", "rf_mask")
 

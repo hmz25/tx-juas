@@ -10,7 +10,7 @@ setwd("C:/Users/hmz25/Box/")
 # aerial image rf pixel classifier 2026 -----------------------------------------
 
 #load pictures to create training data set for non-foliage and non-cones
-not_twig <- stack("Katz lab/texas/not_fol_2026.tif")
+not_twig <- stack("Katz lab/texas/not_fol_2026_2.tif")
 #plotRGB(not_twig) 
 #not_twig$not_ortho_1 
 #not_twig$not_ortho_1[1:100] #all 255
@@ -23,7 +23,7 @@ not_twig_df <- as.data.frame(not_twig) %>%
 #head(not_twig_df)
 
 #load pictures to create training data set for foliage and cones
-yes_twig <- stack("Katz lab/texas/yes_fol_2026.tif")
+yes_twig <- stack("Katz lab/texas/yes_fol_2026_2.tif")
 #plotRGB(yes_twig) 
 #yes_twig$yes_ortho_1 
 #yes_twig$yes_ortho_1[1:100] #also all 255
@@ -70,7 +70,7 @@ str(img_index)
 global(img_index, fun="sum", na.rm=TRUE)
 
 #save rf object
-save(rf_mask_ortho, file = "Box/Katz lab/texasrf_mask_2026.RData")
+save(rf_mask_ortho, file = "Katz lab/texas/rf_mask_2026_2.RData")
 
 # adjusted aerial image rf pixel classifier 2026 -----------------------------------------
 
