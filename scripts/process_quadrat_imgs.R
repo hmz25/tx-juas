@@ -22,7 +22,7 @@ setwd("C:/Users/hmz25/Box/")
 
 # exploring random forest pixel classifier to mask out non cones/non foliage --------
 #load in rf mask (created in rf_mask script)
-rf_mask <- get(load("Katz lab/texas/rf_mask_2026_2.RData"))
+rf_mask <- get(load("Katz lab/texas/rf_mask_2026_5.RData"))
 # print(rf_mask)
 
 #apply model to a single photo

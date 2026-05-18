@@ -6,7 +6,7 @@ library(tidyverse)
 
 
 #load in ortho for CRS (all orthos are in same crs, so should be able to do any)
-ortho <- rast("C:/Users/hmz25/Documents/pix4d/fisher_20250110/3_dsm_ortho/2_mosaic/fisher_20250110_transparent_mosaic_group1.tif")
+ortho <- rast("C:/Users/hmz25/Box/Katz lab/texas/orthos/cathedral_20240105_transparent_mosaic_group1.tif")
 
 # plotRGB(ortho)
 # crs(ortho)
@@ -38,6 +38,7 @@ output_dir <- "C:/Users/hmz25/Box/Katz lab/texas/emlid data 2026/emlid_gcp_csv/g
 csv_files <- list.files(input_dir, pattern = "*.csv", full.names = TRUE)
 
 # file = csv_files[3]
+file = "C:/Users/hmz25/Box/Katz lab/texas/emlid data 2026/emlid_gcp_csv/20260116_wade.csv"
 
 # Loop through each CSV file
 for (file in csv_files) {

@@ -122,7 +122,13 @@ for (i in seq_along(img_list)) {
 
 grey_card_px_df
 
-write_csv(grey_card_px_df, "Katz lab/texas/grey_card_px_df.csv")
+# write_csv(grey_card_px_df, "Katz lab/texas/grey_card_px_df.csv")
+
+grey_card_px_mean_df <- grey_card_px_df |> 
+  group_by(site, tree, date) |> 
+  summarize(mean_r_grey = mean(r),
+            mean_g_grey = mean(g),
+            mean_b_grey = mean(b))
 
 grey_card_px_mean_df <- grey_card_px_df |> 
   group_by(site, date) |> 

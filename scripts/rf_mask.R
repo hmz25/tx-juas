@@ -1,6 +1,7 @@
 #code to run random forest pixel classifier to filter out pixels that are not foliage or cone
 
 library(raster)
+library(terra)
 library(dplyr)
 library(tidyverse)
 library(randomForest)
@@ -9,13 +10,20 @@ setwd("C:/Users/hmz25/Box/")
 
 # aerial image rf pixel classifier 2026 -----------------------------------------
 
+#meta-data notes:
+#rf_1 = with not_fol_2026 and yes_fol_2026
+#rf_2 = with not_fol_2026_2 and yes_fol_2026_2
+#rf_3 = with not_fol_2026_3 and yes_fol_2026_2
+#rf_4 = with not_fol_2026_3 and yes_fol_2026_3 #best one so far
+#rf_5 = with not_fol_2026_3 and yes_fol_2026_3
+
 #load pictures to create training data set for non-foliage and non-cones
-not_twig <- stack("Katz lab/texas/not_fol_2026_2.tif")
+not_twig <- stack("Katz lab/texas/not_fol_2026_4.tif")
 #plotRGB(not_twig) 
 #not_twig$not_ortho_1 
 #not_twig$not_ortho_1[1:100] #all 255
 
-#dataframe for non-foliage and non-cone pixels
+#data frame for non-foliage and non-cone pixels
 not_twig_df <- as.data.frame(not_twig) %>%
   rename(c("r" =1 , "g" = 2, "b" = 3)) %>%
   filter(r != 255) %>% 
@@ -23,12 +31,12 @@ not_twig_df <- as.data.frame(not_twig) %>%
 #head(not_twig_df)
 
 #load pictures to create training data set for foliage and cones
-yes_twig <- stack("Katz lab/texas/yes_fol_2026_2.tif")
+yes_twig <- stack("Katz lab/texas/yes_fol_2026_3.tif")
 #plotRGB(yes_twig) 
 #yes_twig$yes_ortho_1 
 #yes_twig$yes_ortho_1[1:100] #also all 255
 
-#dataframe for foliage and cone pixels
+#data frame for foliage and cone pixels
 yes_twig_df <- as.data.frame(yes_twig) %>%
   rename(c("r" =1 , "g" = 2, "b" = 3)) %>%
   filter(r != 255) %>% 
@@ -48,7 +56,8 @@ rf_mask_ortho <- randomForest(class ~ ., data = training_df_ortho, na.action=na.
 #rf_mask_ortho
 
 #test rf on images
-img <- rast("C:/Users/hmz25/Desktop/DJI_20260121125123_0072_V_canopy.jpg")
+# img <- rast("C:/Users/hmz25/Desktop/DJI_20260121125123_0072_V_canopy.jpg")
+img <- rast("C:/Users/hmz25/Box/Katz lab/texas/tx 2026 drone pics/2026 quadrat pics/cropped_quadrat_pics/gun_t10_tree.tif")
 plotRGB(img)
 
 #change names of ortho to match rf 
@@ -69,8 +78,20 @@ plot(img_index)
 str(img_index)
 global(img_index, fun="sum", na.rm=TRUE)
 
+img <- stack("C:/Users/hmz25/Box/Katz lab/texas/tx 2026 drone pics/2026 quadrat pics/cropped_quadrat_pics/gun_t10_tree.tif")
+plotRGB(img)
+names(img) <- c("r", "g", "b")
+
+img$rf <- predict(img, rf_mask_ortho)
+plot(img)
+
+
+#filter out pixels that aren't foliage or cones 
+img_filt <- mask(img, img$rf, maskvalue = 2, inverse = TRUE)
+plotRGB(img_filt)
+
 #save rf object
-save(rf_mask_ortho, file = "Katz lab/texas/rf_mask_2026_2.RData")
+save(rf_mask_ortho, file = "Katz lab/texas/rf_mask_2026_5.RData")
 
 # adjusted aerial image rf pixel classifier 2026 -----------------------------------------
 

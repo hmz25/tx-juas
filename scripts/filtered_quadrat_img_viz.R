@@ -94,3 +94,66 @@ for (i in seq_along(tif_files)) {
   
   print(file)
 }
+
+
+# create folder with filtered imgs with index applied ----------------------
+
+# ---- set input/output folder for images ----
+input_folder  <- "C:/Users/hmz25/Box/Katz lab/texas/tx 2026 drone pics/2026 quadrat pics/cropped_quadrat_pics/masked_cropped_quadrat_pics"
+output_folder <- "C:/Users/hmz25/Box/Katz lab/texas/tx 2026 drone pics/2026 quadrat pics/jpeg_cropped_filtered_index"
+
+# ---- create output folder ----
+if (!dir.exists(output_folder)) {
+  dir.create(output_folder, recursive = TRUE)
+}
+
+# ---- get list of files ----
+tif_files <- list.files(
+  input_folder,
+  pattern = ".tif",
+  full.names = TRUE,
+  ignore.case = TRUE
+)
+
+# ---- convert each filtered picture from tif to jpeg ----
+
+# i = 4
+
+for (i in seq_along(tif_files)) {
+  
+  file <- tif_files[i]
+  
+  #get image
+  img <- stack(file)
+  # plot(img)
+  # plotRGB(img)
+  
+  #rename bands
+  names(img) <- c("r", "g", "b", "rf_mask")
+  
+  #filter out pixels that aren't foliage or cones 
+  img_filt <- mask(img, img$rf_mask, maskvalue = 2, inverse = TRUE)
+  
+  img_index <- (img_filt$r - img_filt$g)/(img_filt$r/img_filt$g)
+  # plot(img_index, axes = FALSE, box = FALSE, col = cm.colors(n = 10))
+  
+  #create output file name
+  base_name <- tools::file_path_sans_ext(basename(file))
+  output_file <- file.path(output_folder, paste0(base_name, "_index.jpg"))
+  
+  # ---- OPEN JPEG DEVICE ----
+  jpeg(filename = output_file,
+       width = 480, 
+       height = 480, 
+       units = "px", 
+       pointsize = 12,
+       quality = 75)
+  
+  #plot to file
+  plot(img_index, axes = FALSE, box = FALSE, col = cm.colors(n = 10))
+  
+  # ---- CLOSE DEVICE ----
+  dev.off()
+  
+  print(file)
+}
