@@ -20,13 +20,22 @@ library(terra)
 # ----------------------------------------------------------------------------
 # 1. Paths
 # ----------------------------------------------------------------------------
-img_dir <- "C:/Users/hmz25/Box/Katz lab/texas/ortho_corrections" #directory of all images
-out_dir <- "C:/Users/hmz25/Box/Katz lab/texas/aligned_orthos" #directory for aligned images
-dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+
+#set working dir
+
+#lab desktop
+# setwd("C:/Users/hmz25/Box/Katz lab/")
+
+#hz laptop
+setwd("/Users/hannahzonnevylle/Library/CloudStorage/Box-Box/Katz lab/")
+
+img_dir <- "texas/ortho_corrections" #directory of all images
+out_dir <- "texas/aligned_orthos" #directory for aligned images
+# dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
 
 ref_path <- file.path(img_dir, "kimble_20260114_transparent_mosaic_group1_corrected.tif") #replace with your ref. image name
 
-target_paths <- file.path(img_dir, "kimble_20240110_transparent_mosaic_group1.tif") #replace with image you want to align
+target_paths <- file.path(img_dir, "kimble_20240117_transparent_mosaic_group1.tif") #replace with image you want to align
 
 ref <- rast(ref_path)
 # plotRGB(ref)

@@ -11,6 +11,8 @@ library(nnet)
 
 setwd("C:/Users/hmz25/Box/Katz lab/texas")
 
+setwd("/Users/hannahzonnevylle/Library/CloudStorage/Box-Box/Katz lab/texas")
+
 
 # manual cone data processing ---------------------------------------------
 
@@ -126,6 +128,37 @@ quadrat_px_df_norm <- quadrat_px_df |>
          g_norm = g/(r+g+b),
          b_norm = b/(r+g+b))
 
+#apply gamma correction 
+# https://en.wikipedia.org/wiki/Gamma_correction 
+
+# test <- read_exif("tx 2026 drone pics/2026 quadrat pics/DJI_20260122121727_0323_V.JPG")
+# unique(colnames(test))
+# str(test)
+# 
+# grep("Ga", names(test), value = TRUE, ignore.case = TRUE) #gamma not provided in EXIF info 
+
+#raise pixel values to the power of 1/gamma 
+#but first bit-depth scale
+gam <- 2.2
+
+quadrat_px_df_norm <- quadrat_px_df_norm |>
+  #decode gamma so DNs reflect true linear light proportions
+  mutate(r_lin = (r / 255)^(1/gam),
+         g_lin = (g / 255)^(1/gam),
+         b_lin = (b / 255)^(1/gam)) |>
+  #make brightness invariant
+  mutate(r_norm_gam = r_lin / (r_lin + g_lin + b_lin),
+         g_norm_gam = g_lin / (r_lin + g_lin + b_lin),
+         b_norm_gam = b_lin / (r_lin + g_lin + b_lin)) |> 
+  #convert back to 8bit but not brightness invariant
+  mutate(r_test = 255*(r/255)^(1/gam),
+         g_test = 255*(g/255)^(1/gam),
+         b_test = 255*(b/255)^(1/gam)) |> 
+  #8bit and brightness invariant 
+  mutate(r_norm_8bit = r_norm_gam*255,
+         g_norm_8bit = g_norm_gam*255,
+         b_norm_8bit = b_norm_gam*255)
+
 #take mean of rgb values, then calculate the index
 index_df <- quadrat_px_df_norm |>
   filter(rf_mask == 2,
@@ -136,12 +169,17 @@ index_df <- quadrat_px_df_norm |>
             b_mean = mean(b),
             r_norm_mean = mean(r_norm),
             g_norm_mean = mean(g_norm),
-            b_norm_mean = mean(b_norm)) |>
+            b_norm_mean = mean(b_norm),
+            r_norm_gam_mean = mean(r_norm_gam),
+            g_norm_gam_mean = mean(g_norm_gam),
+            b_norm_gam_mean = mean(b_norm_gam)) |>
   group_by(photo, site, tree, quadrat_location, across(r_mean:b_norm_mean)) |>
   summarize(mean_index = (r_mean - g_mean)/(r_mean + g_mean),
             mean_norm_index = (r_norm_mean - g_norm_mean)/(r_norm_mean + g_norm_mean),
             mean_new_index = (r_mean - g_mean)/(r_mean/g_mean),
-            mean_new_norm_index = (r_norm_mean - g_norm_mean)/(r_norm_mean/g_norm_mean)) |>
+            mean_new_norm_index = (r_norm_mean - g_norm_mean)/(r_norm_mean/g_norm_mean),
+            mean_norm_gam_index = (r_norm_gam_mean - g_norm_gam_mean)/(r_norm_gam_mean + g_norm_gam_mean),
+            mean_new_norm_gam_index = (r_norm_gam_mean - g_norm_gam_mean)/(r_norm_gam_mean/g_norm_gam_mean)) |>
   mutate(site = substr(site, 1, 4),
          tree = if_else(tree == "female", tree, str_remove(tree, "^t")))
 
@@ -260,6 +298,7 @@ summary(mod)
 r_sq <- round(summary(mod)$r.sq, 3)
 p_val <- round(coef(summary(mod))[2,4], 4)
 
+#trying to fit logistic model 
 mod_logistic <- multinom(mean_new_norm_index ~ mean_cones_per_g, data = cone_index_df, family = "binomial")
 summary(mod_logistic)
 
@@ -299,6 +338,29 @@ ggplot(cone_index_df, aes(x = mean_new_norm_index, y = mean_cones_per_g)) +
   ggtitle("tree quadrat images index") +
   xlab("spectral index") + ylab(cone~density~(cones/g)) +
   theme_classic()
+
+#model for new index calculated with normalized + gamma corrected bands
+mod <- lm(mean_new_norm_gam_index ~ total_cones, data = cone_index_df) 
+summary(mod)
+r_sq <- round(summary(mod)$r.sq, 3)
+p_val <- round(coef(summary(mod))[2,4], 4)
+
+mod <- lm(mean_new_norm_gam_index ~ mean_cones_per_g, data = cone_index_df) 
+summary(mod)
+r_sq <- round(summary(mod)$r.sq, 3)
+p_val <- round(coef(summary(mod))[2,4], 4)
+
+#model for old index calculated with normalized + gamma corrected bands
+mod <- lm(mean_norm_gam_index ~ total_cones, data = cone_index_df) 
+summary(mod)
+r_sq <- round(summary(mod)$r.sq, 3)
+p_val <- round(coef(summary(mod))[2,4], 4)
+
+mod <- lm(mean_norm_gam_index ~ mean_cones_per_g, data = cone_index_df) 
+summary(mod)
+r_sq <- round(summary(mod)$r.sq, 3)
+p_val <- round(coef(summary(mod))[2,4], 4)
+
 
 # further filtering out non-foliage + cone pixels -------------------------
 
@@ -658,4 +720,6 @@ ggplot(sky_cone_index_df, aes(x = mean_new_norm_index, y = mean_cones_per_g, col
   xlab(expression(paste("spectral index  (", frac(R - G, R / G), ")"))) +
   ylab("cone density (# cones/g)") + 
   ggthemes::theme_few()
+
+#cloud cover analysis 
 
