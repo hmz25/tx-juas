@@ -14,11 +14,15 @@ setwd("C:/Users/hmz25/Box/")
 #rf_1 = with not_fol_2026 and yes_fol_2026
 #rf_2 = with not_fol_2026_2 and yes_fol_2026_2
 #rf_3 = with not_fol_2026_3 and yes_fol_2026_2
-#rf_4 = with not_fol_2026_3 and yes_fol_2026_3 #best one so far
-#rf_5 = with not_fol_2026_3 and yes_fol_2026_3
+#rf_4 = with not_fol_2026_3 and yes_fol_2026_3 
+#rf_5 = with not_fol_2026_4 and yes_fol_2026_3 #best one so far
+
+#updating not_fol_2026_3 to not_fol_2026_alt in Box naming 
+#updating not_fol_2026_4 to not_fol_2026 in Box naming and in script
+#updating yes_fol_2026_3 to yes_fol_2026 in Box naming and in script (this is the corrected one where I deleted all the feathering)
 
 #load pictures to create training data set for non-foliage and non-cones
-not_twig <- stack("Katz lab/texas/not_fol_2026_4.tif")
+not_twig <- stack("Katz lab/texas/not_fol_2026.tif")
 #plotRGB(not_twig) 
 #not_twig$not_ortho_1 
 #not_twig$not_ortho_1[1:100] #all 255
@@ -31,7 +35,7 @@ not_twig_df <- as.data.frame(not_twig) %>%
 #head(not_twig_df)
 
 #load pictures to create training data set for foliage and cones
-yes_twig <- stack("Katz lab/texas/yes_fol_2026_3.tif")
+yes_twig <- stack("Katz lab/texas/yes_fol_2026.tif")
 #plotRGB(yes_twig) 
 #yes_twig$yes_ortho_1 
 #yes_twig$yes_ortho_1[1:100] #also all 255
@@ -91,7 +95,7 @@ img_filt <- mask(img, img$rf, maskvalue = 2, inverse = TRUE)
 plotRGB(img_filt)
 
 #save rf object
-save(rf_mask_ortho, file = "Katz lab/texas/rf_mask_2026_5.RData")
+save(rf_mask_ortho, file = "Katz lab/texas/rf_mask_2026.RData")
 
 # adjusted aerial image rf pixel classifier 2026 -----------------------------------------
 
