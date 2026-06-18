@@ -18,11 +18,11 @@ rf_mask <- get(load("03_output/rf_mask_2026.RData"))
 # set dir for ortho images ----------------------------------------------------
 ortho_dir <- "03_output/aligned_orthos"
 ortho_list <- list.files(ortho_dir, pattern = ".tif$", full.names = FALSE)
-ortho_list <- ortho_list[15:19] #subset to sonora for testing
+ortho_list <- ortho_list[23:27] #subset to sonora for testing
 ortho_list_full_dir <- list.files(ortho_dir, pattern = ".tif$", full.names = TRUE)
-ortho_list_full_dir <- ortho_list_full_dir[15:19]
+ortho_list_full_dir <- ortho_list_full_dir[23:27]
 
-# ortho <- rast("2025 orthos/sonora_20250115_transparent_mosaic_group1.tif")
+# ortho <- rast("C:/Users/hmz25/Box/Katz lab/texas/03_output/aligned_orthos/cathedral_20241230_transparent_mosaic_group1_aligned.tif")
 # plotRGB(ortho)
 
 # set dir for segmented canopy shape files --------------------------------------------
@@ -37,9 +37,9 @@ shp_list_full_dir <- list.files(shp_dir, pattern = ".shp$", full.names = TRUE)
 
 # loop through each site and shape file to calculate mean index --------
 
-index_df <- data.frame()
+site_index_df <- data.frame()
 
-i = 1
+# i = 1
 
 #added orthos, trying new code 
 for (i in seq_along(ortho_list)) {
@@ -59,20 +59,32 @@ for (i in seq_along(ortho_list)) {
   
   shp_path <- shp_list_full_dir[match_index[1]]  
   
-  #load ortho and shapefile
+  #load ortho 
   ortho <- rast(ortho_list_full_dir[i]) #plotRGB(ortho)
   names(ortho) <- c("r", "g", "b", "transparant")
   
+  #load shape file
   shp <- st_read(shp_path, quiet = TRUE, fid_column_name = "tree")
   shp_reproj <- st_transform(shp, crs(ortho)) #plot(shp_reproj, add = T, col = "red")
   
   #cropping the polygons so don't pick up any soil 
-  shp_reproj_crop <- st_buffer(shp_reproj, dist = -0.50) #plot(shp_reproj_crop, add = T, col = "white")
+  shp_reproj_crop <- st_buffer(shp_reproj, dist = -0.75) #plot(shp_reproj_crop, add = T, col = "white")
+  
+  #remove polygons with empty geometry
+  shp_reproj_crop <- shp_reproj_crop[!st_is_empty(shp_reproj_crop), ]
+  
+  #not all canopies are in every image, so need to filter to just ones in the given ortho
+  shp_reproj_crop_sv <- vect(shp_reproj_crop)
+  shp_reproj_crop_sub <- crop(shp_reproj_crop_sv, ortho)
   
   #extract pixel values from canopy shapefiles 
-  extracted_values <- exact_extract(ortho, shp_reproj_crop,
-                                    coverage_area = TRUE, 
-                                    include_cols = "tree", 
+  # extracted_values <- exact_extract(ortho, st_as_sf(shp_reproj_crop_sub),
+  #                                   fun = "mean",
+  #                                   coverage_area = TRUE)
+  
+  extracted_values <- exact_extract(ortho, st_as_sf(shp_reproj_crop_sub),
+                                    coverage_area = TRUE,
+                                    include_cols = "tree",
                                     include_xy = TRUE)
   
   # #testing visually to see if it's doing the right thing
@@ -101,6 +113,7 @@ for (i in seq_along(ortho_list)) {
   #filter for cone/foliage pixels
   fol_pixels <- extracted_df %>%
     filter(class == "yes")
+  # head(fol_pixels)
   
   # #visual check
   # 
@@ -118,11 +131,39 @@ for (i in seq_along(ortho_list)) {
   # plotRGB(fol_pixels_stack)
   
   #compute index
-  index_df <- fol_pixels %>%
-    mutate(rg_index = (r - g) / (r + g),
+  gam <- 2.2
+  
+  # index_df <- fol_pixels %>% 
+  #   #linearize DNs by bit-depth scaling and raising to the power of 1/gamma 
+  #   mutate(r_lin = (r / 255)^(1/gam), 
+  #          g_lin = (g / 255)^(1/gam),
+  #          b_lin = (b / 255)^(1/gam)) %>% 
+  #   #make brightness invariant
+  #   mutate(r_norm_gam = r_lin / (r_lin + g_lin + b_lin),
+  #          g_norm_gam = g_lin / (r_lin + g_lin + b_lin),
+  #          b_norm_gam = b_lin / (r_lin + g_lin + b_lin)) %>% 
+  #   mutate(rg_index = (r_norm_gam - g_norm_gam) / (r_norm_gam / g_norm_gam),
+  #          site = site_name,
+  #          date = flight_date) %>% 
+  #   dplyr::select(-class) 
+  
+  index_df <- fol_pixels %>% 
+    #linearize DNs by bit-depth scaling and raising to the power of 1/gamma 
+    mutate(r_lin = (r / 255)^(1/gam), 
+           g_lin = (g / 255)^(1/gam),
+           b_lin = (b / 255)^(1/gam)) %>% 
+    #make brightness invariant
+    mutate(r_norm_gam = r_lin / (r_lin + g_lin + b_lin),
+           g_norm_gam = g_lin / (r_lin + g_lin + b_lin),
+           b_norm_gam = b_lin / (r_lin + g_lin + b_lin),
            site = site_name,
            date = flight_date) %>% 
-    dplyr::select(-class)
+    dplyr::select(-class) %>% 
+    group_by(site, date, tree) %>% 
+    summarize(mean_rg_index = mean((r_norm_gam - g_norm_gam) / (r_norm_gam / g_norm_gam)),
+              mean_x = mean(x),
+              mean_y = mean(y),
+              num_canopy_px = sum(coverage_area))
   
   site_index_df <- rbind(site_index_df, index_df)
   
@@ -132,8 +173,29 @@ for (i in seq_along(ortho_list)) {
   #                                        rg_index = index_df$rg_index))
   
   print(i)
+  
+  #manually remove large objects (generic R memory cleanup)
+  rm(ortho, shp, shp_reproj, shp_reproj_crop, shp_reproj_crop_sv, 
+     shp_reproj_crop_sub, extracted_values, extracted_df, fol_pixels)
+  
+  # Force garbage collection so terra's external pointers are finalized
+  # before we try to delete their backing temp files
+  gc()
+  
+  # Remove all temporary files from the current session
+  tmpFiles(current = TRUE, remove = TRUE)
+  
+  # Remove orphaned temporary files (files no longer attached to an active SpatRaster object)
+  tmpFiles(orphan = TRUE, remove = TRUE)
 }
 
+# sono_1_df <- index_df
+# 
+# sono_test <- rbind(index_df, sono_1_df)
+# 
+# sono_test_sub <- sono_test %>% 
+#   filter(tree == 1:10)
+  
 #print df 
 site_index_df
 
