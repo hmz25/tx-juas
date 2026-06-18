@@ -15,7 +15,7 @@ setwd("/Users/hannahzonnevylle/Library/CloudStorage/Box-Box/Katz lab/texas")
 # coords <- read_csv("aligned_orthos/gcps_sonora_20250115_transparent_mosaic_group1.csv")  
 # #ref_x, ref_y = coords from img to align to, tgt_x, tgt_y = current coords
 
-coords_dir <- "aligned_orthos"
+coords_dir <- "03_output/aligned_orthos"
 coords_list <- list.files(coords_dir, full.names = F, pattern = ".csv")
 coords_list_full <- list.files(coords_dir, full.names = T, pattern = ".csv")
 
@@ -32,7 +32,7 @@ for (i in seq_along(coords_list)) {
   date <- as.Date(str_split_i(file_name, "_", 3), "%Y%m%d")
   
   coord_file_info[[i]] <- list(
-    site     = site,
+    site     = substr(site,1,4),
     date     = date,
     filename = file_name,
     filepath = coords_list_full[i]
@@ -64,9 +64,11 @@ earliest_2025
 # plot(shp)
 
 #loop through each shape file to calculate offset from correct coord file 
-shp_dir <- "2025 juas qgis"
+shp_dir <- "01_data/canopy segmentation"
 shp_list <- list.files(shp_dir, full.names = F, pattern = "_fixed.shp")
 shp_list_full <- list.files(shp_dir, full.names = T, pattern = "_fixed.shp")
+
+output_dir <- "03_output/corrected_canopy_shp/"
 
 # i = 1
 
@@ -77,9 +79,15 @@ for (i in seq_along(shp_list)) {
   # plot(shp$geometry)
   
   #get site name
-  site <- str_split_i(basename(shp_list_full[i]), "_", 1)
+  site <- substr(str_split_i(basename(shp_list_full[i]), "_", 1),1,4)
   
   #pull matching coords file
+  #skip if no matching coords file
+  if (is.null(earliest_2025[[site]])) {
+    print(paste0("no matching coords file for site: ", site))
+    next
+  }
+  
   coords_file <- earliest_2025[[site]]$filepath
   coords <- read_csv(coords_file)
   
@@ -115,7 +123,7 @@ for (i in seq_along(shp_list)) {
   # plot(shp_shifted_wgs$geometry, add = T, col = "red")
   
   #save the result
-  st_write(shp_shifted_wgs, paste0(site,"_shifted.shp"))
+  st_write(shp_shifted_wgs, paste0(output_dir, site,"_shifted.shp"), append = F)
     
   print(i)
 }

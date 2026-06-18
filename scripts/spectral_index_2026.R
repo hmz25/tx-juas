@@ -357,7 +357,7 @@ fol_index_df |>
 
 ## how sky conditions (my obs) impact spectral index ---------------------------------------------------
 
-sky_df <- read_csv("C:/Users/hmz25/Desktop/2026 TX drone pics metadata - sky conditions.csv")
+sky_df <- read_csv("01_data/2026 TX drone pics metadata - sky conditions.csv")
 
 sky_df_clean <- sky_df |> 
   mutate(site = substr(site, 1, 4)) |> 
@@ -373,7 +373,7 @@ sky_cone_index_df <- cone_index_df |>
 cloud_cone_index_df <- sky_cone_index_df |> 
   filter(condition == "cloudy")
 
-mod_cloud <- lm(mean_cones_per_g ~ mean_new_norm_index, data = cloud_cone_index_df)
+mod_cloud <- lm(mean_norm_gam_index ~ mean_cones_per_g, data = cloud_cone_index_df)
 summary(mod_cloud)
 r_sq_cloud <- round(summary(mod_cloud)$r.sq, 2)
 # p_val <- round(coef(summary(mod_cloud))[2,4], 4)
@@ -381,13 +381,14 @@ r_sq_cloud <- round(summary(mod_cloud)$r.sq, 2)
 sun_cone_index_df <- sky_cone_index_df |> 
   filter(condition == "sunny")
 
-mod_sun <- lm(mean_cones_per_g ~ mean_new_norm_index, data = sun_cone_index_df)
+mod_sun <- lm(mean_norm_gam_index ~ mean_cones_per_g, data = sun_cone_index_df)
 summary(mod_sun)
 
-mod_mixed <- lm(mean_cones_per_g ~ mean_new_norm_index, data = sky_cone_index_df)
+mod_mixed <- lm(mean_norm_gam_index ~ mean_cones_per_g, data = sky_cone_index_df)
 summary(mod_mixed)
 
-ggplot(sky_cone_index_df, aes(x = mean_new_norm_index, y = mean_cones_per_g, col = condition)) + 
+#plot
+ggplot(sky_cone_index_df, aes(x = mean_norm_gam_index, y = mean_cones_per_g, col = condition)) + 
   geom_point(alpha = 0.5) + 
   theme_bw() + 
   geom_smooth(method = "lm", se = F) +
@@ -395,30 +396,32 @@ ggplot(sky_cone_index_df, aes(x = mean_new_norm_index, y = mean_cones_per_g, col
   ggtitle("correlation of index values with manual cone density estimates based on weather") + 
   xlab(expression(paste("spectral index  (", frac(R-G, R/G), ")"))) + 
   ylab("cone density (# cones/g)") + 
-  annotate("text", x = -0.175, y = 70, label = paste("R² =",r_sq_cloud)) +
+  annotate("text", x = -0.06, y = 70, label = paste("R² =",r_sq_cloud)) +
   ggthemes::theme_few()
 
-# Calculate R² for each condition
+#generating plot with R² for all conditions
+
+#calculate R² for each condition
 r2_labels <- sky_cone_index_df |>
   filter(condition != "mixed") |>          # exclude mixed from grouped R²
   group_by(condition) |>
   summarise(
-    r2 = summary(lm(mean_cones_per_g ~ mean_new_norm_index))$r.squared
+    r2 = summary(lm(mean_norm_gam_index ~ mean_cones_per_g))$r.squared
   ) |>
   bind_rows(
     tibble(
       condition = "mixed",
-      r2 = summary(lm(mean_cones_per_g ~ mean_new_norm_index, data = sky_cone_index_df))$r.squared
+      r2 = summary(lm(mean_norm_gam_index ~ mean_cones_per_g, data = sky_cone_index_df))$r.squared
     )
   ) |>
   mutate(
     label = paste0(condition, ": R² = ", round(r2, 2)),
-    x = -0.165,
+    x = -0.040,
     y = seq(70, 70 - (n() - 1) * 3, by = -3)
   )
 
-# Plot
-ggplot(sky_cone_index_df, aes(x = mean_new_norm_index, y = mean_cones_per_g, col = condition)) +
+#plot
+ggplot(sky_cone_index_df, aes(x = mean_norm_gam_index, y = mean_cones_per_g, col = condition)) +
   geom_point(alpha = 0.5) +
   theme_bw() +
   geom_smooth(method = "lm", se = FALSE) +
@@ -433,10 +436,14 @@ ggplot(sky_cone_index_df, aes(x = mean_new_norm_index, y = mean_cones_per_g, col
   ylab("cone density (# cones/g)") + 
   ggthemes::theme_few()
 
+#try to add sky conditions as a fixed effect into the model
+mod_cc <- lm(mean_norm_gam_index ~ mean_cones_per_g + factor(sky_cone_index_df$condition), data = sky_cone_index_df)
+summary(mod_cc)
+
 ## cloud cover analysis with NOAA RTMA data ---------------------------------------------------
 
 #read in cloud cover percentage data (extracted using google earth engine, code here: )
-cc_df <- read_csv("cloud_cover_perc_2026.csv")
+cc_df <- read_csv("01_data/cloud_cover_perc_2026.csv")
 # head(cc_df)
 # str(cc_df)
 
@@ -448,7 +455,7 @@ cc_df_clean <- cc_df |>
 # str(cc_df_clean)
 
 #read in metadata for quadrat images to extract time the picture was taken
-meta_df <- read_csv("2026 TX drone pics metadata - focal tree metadata.csv")
+meta_df <- read_csv("01_data/2026 TX drone pics metadata - focal tree metadata.csv")
 
 meta_df_clean <- meta_df |> 
   mutate(site = substr(site,1,4)) |> 
@@ -487,8 +494,12 @@ cc_cone_index_df <- cc_cone_index_df |>
   mutate(condition = case_when(
     cloud_cover < 25  ~ "sunny",
     cloud_cover > 75  ~ "cloudy",
-    TRUE    ~ "mixed"  # acts as the final 'else'
+    TRUE    ~ "mixed"  # acts as the final "else"
   ))
+
+#run model where factor(condition) is fixed effect
+mod_cc <- lm(mean_norm_gam_index ~ mean_cones_per_g + factor(cc_cone_index_df$condition), data = cc_cone_index_df)
+summary(mod_cc)
 
 # sum(cc_cone_index_df$condition == "mixed") #9
 # sum(cc_cone_index_df$condition == "cloudy") #13
