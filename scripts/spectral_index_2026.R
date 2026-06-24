@@ -9,9 +9,10 @@ library(tidyterra)
 library(ggplot2)
 library(nnet)
 library(lubridate)
+library(ggpubr)
 
-#lab desktop
-setwd("C:/Users/hmz25/Box/Katz lab/texas")
+# #lab desktop
+# setwd("C:/Users/hmz25/Box/Katz lab/texas")
 
 #hz laptop
 setwd("/Users/hannahzonnevylle/Library/CloudStorage/Box-Box/Katz lab/texas")
@@ -163,6 +164,24 @@ mod <- lm(mean_norm_gam_index ~ mean_cones_per_g, data = cone_index_df)
 summary(mod)
 r_sq <- round(summary(mod)$r.sq, 3)
 p_val <- round(coef(summary(mod))[2,4], 4)
+
+#trying logistic fit
+cone_index_df_logit <- cone_index_df |> 
+  #change y var into proportion for logistic fit
+  mutate(mean_cones_per_g_prop = mean_cones_per_g/(max(cone_index_df$mean_cones_per_g)),
+         mean_norm_gam_index_rescale = (mean_norm_gam_index - min(cone_index_df$mean_norm_gam_index))/
+           (max(cone_index_df$mean_norm_gam_index) - min(cone_index_df$mean_norm_gam_index)))
+
+#fit model where Y is continuous proportion and X is continuous
+# mod_quasi <- glm(mean_norm_gam_index_rescale ~ mean_cones_per_g, data = cone_index_df_logit, 
+#                  family = quasibinomial(link = "logit"))
+
+mod_logit <- glm(mean_norm_gam_index_rescale ~ mean_cones_per_g, data = cone_index_df_logit, 
+                 family = "binomial")
+
+summary(mod_logit)
+
+AIC(mod, mod_logit)
 
 # #model for index calculated with 8bit gamma corrected + normalized bands
 # #gives same result :-)
@@ -396,7 +415,7 @@ ggplot(sky_cone_index_df, aes(x = mean_norm_gam_index, y = mean_cones_per_g, col
   ggtitle("correlation of index values with manual cone density estimates based on weather") + 
   xlab(expression(paste("spectral index  (", frac(R-G, R/G), ")"))) + 
   ylab("cone density (# cones/g)") + 
-  annotate("text", x = -0.06, y = 70, label = paste("R² =",r_sq_cloud)) +
+  annotate("text", x = -0.06, y = 70) +
   ggthemes::theme_few()
 
 #generating plot with R² for all conditions
@@ -439,6 +458,19 @@ ggplot(sky_cone_index_df, aes(x = mean_norm_gam_index, y = mean_cones_per_g, col
 #try to add sky conditions as a fixed effect into the model
 mod_cc <- lm(mean_norm_gam_index ~ mean_cones_per_g + factor(sky_cone_index_df$condition), data = sky_cone_index_df)
 summary(mod_cc)
+r_sq_fe <- round(summary(mod_cc)$r.sq, 2)
+
+ggplot(sky_cone_index_df, aes(x = mean_norm_gam_index, y = mean_cones_per_g, col = condition)) + 
+  geom_point(alpha = 0.5) + 
+  theme_bw() + 
+  geom_smooth(method = "lm", se = F) +
+  ylim(0,70) +
+  ggtitle("correlation of index values with manual cone density estimates based on sky conditions") + 
+  xlab("spectral index") + 
+  ylab("cone density (# cones/g)") + 
+  annotate("text", x = -0.058, y = 70, label = paste0("R² = ",r_sq_fe,", p < 0.001")) +
+  ggthemes::theme_few() + 
+  stat_regline_equation(label.y = c(66, 63, 60), label.x = -0.068)  # one value per level of condition, in level order
 
 ## cloud cover analysis with NOAA RTMA data ---------------------------------------------------
 
@@ -582,3 +614,84 @@ ggplot(cc_cone_index_df, aes(x = mean_norm_gam_index, y = mean_cones_per_g)) +
   ylab("cone density (# cones/g)") + 
   ggthemes::theme_few()
 
+
+# pheno analysis ----------------------------------------------------------
+
+#join index df with df that has info about perc cones open
+focal_pheno <- read_csv("01_data/FieldMaps data 2026/focal_trees_2026.csv")
+
+focal_pheno_clean <- focal_pheno %>%
+  dplyr::select(date_time, site, focal_tree_number, percent_cones_open, x, y) %>%
+  mutate(site = tolower(site)) %>%
+  mutate(site = substr(site, 1, 4))
+
+pheno_df <- focal_pheno_clean %>% 
+  dplyr::filter(!is.na(percent_cones_open)) %>%
+  separate(date_time, into = c("date", "time"), sep = " ") %>%
+  dplyr::select(-time) %>% 
+  mutate(site = gsub(" ", "", site)) %>% 
+  rename(tree = focal_tree_number) 
+
+index_pheno_df <- pheno_df %>% 
+  mutate(tree = as.character(tree)) |> 
+  left_join(cone_index_df, by = c("site", "tree")) %>% 
+  drop_na(mean_norm_gam_index) |> 
+  #create column for percent open grouping
+  mutate(pheno = case_when(
+    percent_cones_open <= 24 ~ "0-24%",
+    percent_cones_open <= 75 ~ "25–75%",
+    percent_cones_open > 75  ~ "75-100%"
+  ))
+
+ggplot(index_pheno_df, aes(x = mean_norm_gam_index, y = mean_cones_per_g, col = pheno)) + 
+  geom_point(alpha = 0.5) + 
+  theme_bw() + 
+  geom_smooth(method = "lm", se = F) +
+  ylim(0,70) +
+  ggtitle("correlation of index values with manual cone density estimates based on weather") + 
+  xlab(expression(paste("spectral index  (", frac(R-G, R/G), ")"))) + 
+  ylab("cone density (# cones/g)") + 
+  ggthemes::theme_few()
+
+#compute R² per group
+r2_df_pheno <- index_pheno_df %>%
+  group_by(pheno) %>%
+  summarise(
+    r2 = summary(lm(mean_norm_gam_index ~ mean_cones_per_g))$r.squared,
+    x = max(mean_norm_gam_index, na.rm = TRUE),
+    y = max(mean_cones_per_g, na.rm = TRUE)
+  )
+
+#plot with text labels
+ggplot(index_pheno_df, aes(x = mean_norm_gam_index, 
+                           y = mean_cones_per_g, 
+                           color = pheno)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE) +
+  geom_text(data = r2_df_pheno,
+            aes(x = -0.04, y = c(70,67,64), 
+                label = paste0("R² = ", round(r2, 2))),
+            hjust = 1, vjust = 1, size = 4) +
+  theme_bw() +
+  labs(col = "percent cones open")+ 
+  xlab("spectral index") +
+  ylab(expression(cone~density~(cones/g))) +
+  theme_classic()
+
+#looking at another viz
+index_pheno_df |> 
+  mutate(percent_cones_open = as.factor(percent_cones_open)) |> 
+  ggplot() + 
+  geom_boxplot(aes(x = percent_cones_open, y = mean_norm_gam_index)) +
+  facet_wrap(~site) +
+  theme_classic() +
+  ylab("spectral index") + 
+  xlab("percent cones open")
+
+index_pheno_df |> 
+  ggplot() + 
+  geom_boxplot(aes(x = pheno, y = mean_norm_gam_index)) +
+  facet_wrap(~site) +
+  theme_classic() +
+  ylab("spectral index") + 
+  xlab("percent cones open")

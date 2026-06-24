@@ -9,11 +9,15 @@ library(dplyr)
 library(randomForest)
 library(exactextractr)
 
+#lab desktop
 setwd("C:/Users/hmz25/Box/Katz lab/texas/")
+
+#hz laptop
+setwd("/Users/hannahzonnevylle/Library/CloudStorage/Box-Box/Katz lab/texas")
 
 # load in rf model to filter foliage vs non foliage pixels --------------------
 rf_mask <- get(load("03_output/rf_mask_2026.RData"))
-
+# rf_mask$err.rate[nrow(rf_mask$err.rate), "OOB"]
 
 # set dir for ortho images ----------------------------------------------------
 ortho_dir <- "03_output/aligned_orthos"
@@ -39,7 +43,7 @@ shp_list_full_dir <- list.files(shp_dir, pattern = ".shp$", full.names = TRUE)
 
 site_index_df <- data.frame()
 
-# i = 1
+# i = 5
 
 #added orthos, trying new code 
 for (i in seq_along(ortho_list)) {
@@ -178,23 +182,21 @@ for (i in seq_along(ortho_list)) {
   rm(ortho, shp, shp_reproj, shp_reproj_crop, shp_reproj_crop_sv, 
      shp_reproj_crop_sub, extracted_values, extracted_df, fol_pixels)
   
-  # Force garbage collection so terra's external pointers are finalized
-  # before we try to delete their backing temp files
+  #force garbage collection 
   gc()
   
-  # Remove all temporary files from the current session
+  #remove all temporary files from the current session
   tmpFiles(current = TRUE, remove = TRUE)
   
-  # Remove orphaned temporary files (files no longer attached to an active SpatRaster object)
+  #remove orphaned temporary files (files no longer attached to an active SpatRaster object)
   tmpFiles(orphan = TRUE, remove = TRUE)
 }
 
-# sono_1_df <- index_df
+test <- rast("~/Library/CloudStorage/Box-Box/Katz lab/texas/03_output/aligned_orthos/sonora_20240109_transparent_mosaic_group1_aligned.tif")
+
+# sono_2026_df <- index_df
 # 
-# sono_test <- rbind(index_df, sono_1_df)
-# 
-# sono_test_sub <- sono_test %>% 
-#   filter(tree == 1:10)
+# write_csv(sono_2026_df, "/Users/hannahzonnevylle/Library/CloudStorage/Box-Box/Katz lab/texas/sono_2026_df.csv")
   
 #print df 
 site_index_df

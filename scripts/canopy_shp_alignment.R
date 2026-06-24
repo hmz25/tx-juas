@@ -68,9 +68,17 @@ shp_dir <- "01_data/canopy segmentation"
 shp_list <- list.files(shp_dir, full.names = F, pattern = "_fixed.shp")
 shp_list_full <- list.files(shp_dir, full.names = T, pattern = "_fixed.shp")
 
-output_dir <- "03_output/corrected_canopy_shp/"
+#for female canopy analysis
+shp_dir <- "01_data/female tree index analysis/shp"
+shp_list <- list.files(shp_dir, full.names = F, pattern = ".shp")
+shp_list_full <- list.files(shp_dir, full.names = T, pattern = ".shp")
 
-# i = 1
+output_dir <- "03_output/corrected_canopy_shp/"
+#for female canopy analysis 
+output_dir <- "01_data/female tree index analysis/corrected_shp/"
+# dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+
+# i = 3
 
 for (i in seq_along(shp_list)) {
   

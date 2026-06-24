@@ -27,15 +27,15 @@ library(terra)
 # setwd("C:/Users/hmz25/Box/Katz lab/")
 
 #hz laptop
-setwd("/Users/hannahzonnevylle/Library/CloudStorage/Box-Box/Katz lab/")
+setwd('/Users/hannahzonnevylle/Library/CloudStorage/Box-Box/Katz lab/texas')
 
-img_dir <- "texas/orthos" 
-out_dir <- "texas/aligned_orthos" #directory for aligned images
+img_dir <- "01_data/orthos" 
+out_dir <- "03_output/aligned_orthos" #directory for aligned images
 # dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
 
-ref_path <- file.path(img_dir, "kimble_20260114_transparent_mosaic_group1_corrected.tif") #replace with your ref image name
+ref_path <- file.path(img_dir, "sonora_20260112_transparent_mosaic_group1_corrected.tif") #replace with your ref image name
 
-target_paths <- file.path(img_dir, "kimble_20240117_transparent_mosaic_group1.tif") #replace with image you want to align
+target_paths <- file.path(img_dir, "sonora_20240109_transparent_mosaic_group1.tif") #replace with image you want to align
 
 ref <- rast(ref_path)
 # plotRGB(ref)
@@ -197,6 +197,10 @@ pts_i <- pick_matching_points_zoom(ref, tgt, n = 8)
 write.csv(pts_i,
           file.path(out_dir, paste0("gcps_", tgt_base, ".csv")),
           row.names = FALSE)
+
+sonora_gcps <- read_csv("03_output/aligned_orthos/gcps_sonora_20240109_transparent_mosaic_group1.csv")
+
+pts_i <- sonora_gcps
 
 # 5b. Estimate shift
 shift_i <- estimate_shift(pts_i, ref, snap_to_pixel = TRUE)
