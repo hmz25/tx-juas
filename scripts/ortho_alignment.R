@@ -16,6 +16,7 @@
 # ============================================================================
 
 library(terra)
+library(tidyverse)
 
 # ----------------------------------------------------------------------------
 # 1. Paths
@@ -27,15 +28,20 @@ library(terra)
 # setwd("C:/Users/hmz25/Box/Katz lab/")
 
 #hz laptop
-setwd('/Users/hannahzonnevylle/Library/CloudStorage/Box-Box/Katz lab/texas')
+# setwd('/Users/hannahzonnevylle/Library/CloudStorage/Box-Box/Katz lab/texas')
+
+#mo comp
+setwd("C:/Users/HMZ/Box/texas")
 
 img_dir <- "01_data/orthos" 
-out_dir <- "03_output/aligned_orthos" #directory for aligned images
+# out_dir <- "03_output/aligned_orthos" #directory for aligned images
+out_dir <- "F:/aligned_orthos"
 # dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
 
-ref_path <- file.path(img_dir, "sonora_20260112_transparent_mosaic_group1_corrected.tif") #replace with your ref image name
+# ref_path <- file.path(img_dir, "gun_20260111_transparent_mosaic_group1_corrected.tif") #replace with your ref image name
+ref_path <- "F:/aligned_orthos/kimble_20260114_transparent_mosaic_group1_corrected.tif"
 
-target_paths <- file.path(img_dir, "sonora_20240109_transparent_mosaic_group1.tif") #replace with image you want to align
+target_paths <- file.path(img_dir, "kimble_20240117_transparent_mosaic_group1.tif") #replace with image you want to align
 
 ref <- rast(ref_path)
 # plotRGB(ref)
@@ -198,9 +204,10 @@ write.csv(pts_i,
           file.path(out_dir, paste0("gcps_", tgt_base, ".csv")),
           row.names = FALSE)
 
-sonora_gcps <- read_csv("03_output/aligned_orthos/gcps_sonora_20240109_transparent_mosaic_group1.csv")
+kimb_gcps <- read_csv("3_output/aligned_orthos/gcps_kimble_20240117_transparent_mosaic_group1.csv")
+kimb_gcps <- read_csv("C:/Users/HMZ/Box/texas/03_output/aligned_orthos/gcps_kimble_20240117_transparent_mosaic_group1.csv")
 
-pts_i <- sonora_gcps
+pts_i <- kimb_gcps
 
 # 5b. Estimate shift
 shift_i <- estimate_shift(pts_i, ref, snap_to_pixel = TRUE)
@@ -214,3 +221,15 @@ aligned_i <- shift_raster(tgt, shift_i, ref_img = ref,
 cat("\nDone. Outputs:\n")
 cat("  GCPs:    ", file.path(out_dir, paste0("gcps_", tgt_base, ".csv")), "\n")
 cat("  Aligned: ", out_i, "\n")
+
+#manually remove large objects (generic R memory cleanup)
+rm(aligned_i, ref, tgt)
+
+#force garbage collection 
+gc()
+
+#remove all temporary files from the current session
+tmpFiles(current = TRUE, remove = TRUE)
+
+#remove orphaned temporary files (files no longer attached to an active SpatRaster object)
+tmpFiles(orphan = TRUE, remove = TRUE)

@@ -7,8 +7,11 @@ library(tidyverse)
 # #wd for lab desktop
 # setwd("C:/Users/hmz25/Box/Katz lab/texas/")
 
-#wd for hz macbook
-setwd("/Users/hannahzonnevylle/Library/CloudStorage/Box-Box/Katz lab/texas")
+# #wd for hz macbook
+# setwd("/Users/hannahzonnevylle/Library/CloudStorage/Box-Box/Katz lab/texas")
+
+#mo comp 
+setwd("C:/Users/HMZ/Box/texas")
 
 #read in for coordinates used to calculate offset (generated in ortho_alignment script)
 
@@ -74,6 +77,7 @@ shp_list <- list.files(shp_dir, full.names = F, pattern = ".shp")
 shp_list_full <- list.files(shp_dir, full.names = T, pattern = ".shp")
 
 output_dir <- "03_output/corrected_canopy_shp/"
+
 #for female canopy analysis 
 output_dir <- "01_data/female tree index analysis/corrected_shp/"
 # dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)

@@ -8,12 +8,16 @@ library(tidyverse)
 library(dplyr)
 library(randomForest)
 library(exactextractr)
+library(mmstat4)
 
 #lab desktop
-setwd("C:/Users/hmz25/Box/Katz lab/texas/")
+# setwd("C:/Users/hmz25/Box/Katz lab/texas/")
 
 #hz laptop
-setwd("/Users/hannahzonnevylle/Library/CloudStorage/Box-Box/Katz lab/texas")
+# setwd("/Users/hannahzonnevylle/Library/CloudStorage/Box-Box/Katz lab/texas")
+
+#mo comp
+setwd("C:/Users/HMZ/Box/texas")
 
 # load in rf model to filter foliage vs non foliage pixels --------------------
 rf_mask <- get(load("03_output/rf_mask_2026.RData"))
@@ -21,13 +25,48 @@ rf_mask <- get(load("03_output/rf_mask_2026.RData"))
 
 # set dir for ortho images ----------------------------------------------------
 ortho_dir <- "03_output/aligned_orthos"
+ortho_dir <- "F:/aligned_orthos"
 ortho_list <- list.files(ortho_dir, pattern = ".tif$", full.names = FALSE)
-ortho_list <- ortho_list[23:27] #subset to sonora for testing
+# ortho_list <- ortho_list[23:27] #subset to sonora for testing
 ortho_list_full_dir <- list.files(ortho_dir, pattern = ".tif$", full.names = TRUE)
-ortho_list_full_dir <- ortho_list_full_dir[23:27]
+# ortho_list_full_dir <- ortho_list_full_dir[23:27]
 
 # ortho <- rast("C:/Users/hmz25/Box/Katz lab/texas/03_output/aligned_orthos/cathedral_20241230_transparent_mosaic_group1_aligned.tif")
 # plotRGB(ortho)
+
+#make sure all files are uncorrupted 
+
+# list.raster.files(path = ortho_list_full_dir, return_rasters = FALSE)
+
+# checkFiles(ortho_list_full_dir, open = 0)
+
+# #create df to store results
+# load_status <- data.frame(
+#   file = basename(ortho_list_full_dir),
+#   status = character(length(ortho_list_full_dir)),
+#   error = character(length(ortho_list_full_dir)),
+#   stringAsFactors = F
+# )
+# 
+# # i = 1
+# 
+# #loop thru raster files
+# for (i in seq_along(ortho_list_full_dir)) {
+#   file <- ortho_list_full_dir[i]
+#   
+#   tryCatch({
+#     temp_rast <- rast(file)
+#     
+#     load_status$status[i] <- "success"
+#     load_status$error[i] <- "NA"
+#     
+#   }, error = function(e) {
+#     load_status$status[i] <- "fail"
+#     load_status$error[i] <- e$message
+#   })
+#   
+#   print(i)
+# }
 
 # set dir for segmented canopy shape files --------------------------------------------
 
@@ -81,11 +120,13 @@ for (i in seq_along(ortho_list)) {
   shp_reproj_crop_sv <- vect(shp_reproj_crop)
   shp_reproj_crop_sub <- crop(shp_reproj_crop_sv, ortho)
   
-  #extract pixel values from canopy shapefiles 
-  # extracted_values <- exact_extract(ortho, st_as_sf(shp_reproj_crop_sub),
-  #                                   fun = "mean",
-  #                                   coverage_area = TRUE)
+  #randomly sample 20 trees for testing
+  shp_reproj_crop_sub_sf <- st_as_sf(shp_reproj_crop_sub) %>%
+    slice_sample(n = min(20, nrow(.)))
+ 
+   shp_reproj_crop_sub <- vect(shp_reproj_crop_sub_sf)
   
+  #extract pixel values from canopy shp
   extracted_values <- exact_extract(ortho, st_as_sf(shp_reproj_crop_sub),
                                     coverage_area = TRUE,
                                     include_cols = "tree",
@@ -192,14 +233,26 @@ for (i in seq_along(ortho_list)) {
   tmpFiles(orphan = TRUE, remove = TRUE)
 }
 
-test <- rast("~/Library/CloudStorage/Box-Box/Katz lab/texas/03_output/aligned_orthos/sonora_20240109_transparent_mosaic_group1_aligned.tif")
-
-# sono_2026_df <- index_df
-# 
-# write_csv(sono_2026_df, "/Users/hannahzonnevylle/Library/CloudStorage/Box-Box/Katz lab/texas/sono_2026_df.csv")
-  
 #print df 
 site_index_df
+
+focal_tree_df <- read_csv("01_data/FieldMaps data 2026/focal_trees_2026.csv")
+head(focal_tree_df)
+
+unique(site_index_df$site)
+unique(site_index_df$date)
+
+site_index_df_pheno <- site_index_df %>% 
+  mutate(year = substr(date, 1, 4)) %>% 
+  filter(2025 %in% year) %>% 
+  group_by(site, tree) %>% 
+  filter(n_distinct(date) == 2) %>% 
+  ungroup()
+
+site_index_df_pheno %>% 
+  filter("sonora" %in% site) %>% 
+  ggplot() +
+  geom_boxplot(aes(x = tree, y = mean_rg_index, col = date)) 
 
 # #test to see if right number of tree canopies
 # wind_site_index <- site_index_df %>% 

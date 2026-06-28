@@ -5,8 +5,11 @@ library(sf)
 library(terra)
 library(exactextractr)
 
-setwd("C:/Users/hmz25/Box/")
+# #lab desktop
+# setwd("C:/Users/hmz25/Box/")
 
+#mo comp
+setwd("C:/Users/HMZ/Box/texas")
 
 # load in rf mask to filter out non-cone/foliage pixels from canop --------
 
@@ -14,7 +17,8 @@ rf_mask_ortho <- get(load("Katz lab/texas/rf_mask_ortho.RData"))
 # rf_mask_ortho
 
 # set dir for ortho images ----------------------------------------------------
-ortho_dir <- "Katz lab/texas/female tree index analysis/imgs"
+# ortho_dir <- "Katz lab/texas/female tree index analysis/imgs"
+ortho_dir <- "F:/aligned_orthos"
 ortho_list <- list.files(ortho_dir, pattern = ".tif$", full.names = FALSE)
 ortho_list_full_dir <- list.files(ortho_dir, pattern = ".tif$", full.names = TRUE)
 
@@ -23,7 +27,7 @@ ortho_list_full_dir <- list.files(ortho_dir, pattern = ".tif$", full.names = TRU
 
 # set dir for segmented canopy shape files --------------------------------------------
 
-shp_dir <- "Katz lab/texas/female tree index analysis/shp"
+shp_dir <- "01_data/female tree index analysis/corrected_shp"
 shp_list <- list.files(shp_dir, pattern = ".shp$", full.names = FALSE)
 shp_list_full_dir <- list.files(shp_dir, pattern = ".shp$", full.names = TRUE)
 
@@ -34,7 +38,7 @@ shp_list_full_dir <- list.files(shp_dir, pattern = ".shp$", full.names = TRUE)
 
 female_index_df <- data.frame()
 
-i = 5
+# i = 5
 
 for (i in seq_along(ortho_list)) {
   
@@ -62,7 +66,7 @@ for (i in seq_along(ortho_list)) {
   shp_reproj <- st_transform(shp, crs(ortho)) #plot(shp_reproj, add = T, col = "red")
   
   #cropping the polygons so don't pick up as much soil 
-  shp_reproj_crop <- st_buffer(shp_reproj, dist = -0.25) #plot(shp_reproj_crop, add = T, col = "white")
+  shp_reproj_crop <- st_buffer(shp_reproj, dist = -0.50) #plot(shp_reproj_crop, add = T, col = "white")
   
   #crop ortho to canopy
   ortho_crop <- crop(ortho, shp_reproj_crop)
@@ -106,6 +110,34 @@ for (i in seq_along(ortho_list)) {
 
 #print df 
 female_index_df
+
+female_index_df_test <- female_index_df %>% 
+  #linearize DNs by bit-depth scaling and raising to the power of 1/gamma 
+  mutate(r_lin = (r / 255)^(1/gam), 
+         g_lin = (g / 255)^(1/gam),
+         b_lin = (b / 255)^(1/gam)) %>% 
+  #make brightness invariant
+  mutate(r_norm_gam = r_lin / (r_lin + g_lin + b_lin),
+         g_norm_gam = g_lin / (r_lin + g_lin + b_lin),
+         b_norm_gam = b_lin / (r_lin + g_lin + b_lin),
+         spec_index = (r_norm_gam - g_norm_gam) / (r_norm_gam / g_norm_gam))
+
+female_index_df_test %>% 
+  ggplot() +
+  geom_boxplot(aes(x = site, y = spec_index, col = date)) +
+  theme_classic()
+
+female_index_df_test <- female_index_df %>% 
+  #linearize DNs by bit-depth scaling and raising to the power of 1/gamma 
+  mutate(r_lin = (r / 255)^(1/gam), 
+         g_lin = (g / 255)^(1/gam),
+         b_lin = (b / 255)^(1/gam)) %>% 
+  #make brightness invariant
+  mutate(r_norm_gam = r_lin / (r_lin + g_lin + b_lin),
+         g_norm_gam = g_lin / (r_lin + g_lin + b_lin),
+         b_norm_gam = b_lin / (r_lin + g_lin + b_lin)) %>% 
+  group_by(site, date) %>% 
+  summarize(mean_rg_index = mean((r_norm_gam - g_norm_gam) / (r_norm_gam / g_norm_gam)))
 
 female_index_df <- female_index_df %>% 
   mutate(tree = "female")
