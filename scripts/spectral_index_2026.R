@@ -48,10 +48,28 @@ cone_df_clean <- cone_df |>
 #   ylab("cone count") +
 #   theme_minimal()
 
-cone_density_df <- cone_df_clean |> 
-  mutate(cones_per_g = count/weight) |> 
-  group_by(date_collected, site, tree, quadrat_location, total_mass) |> 
-  summarize(mean_cones_per_g = mean(cones_per_g)) |> 
+#our weight is wet weight, have to convert to dry
+#read in foliar moiture data
+
+fm_df <- read_csv("03_output/sample_perc_moisture_df.csv") |> 
+  mutate(site = substr(site,1,4)) |> 
+  filter(year == "2026")
+
+#join cone df and foliar moisture df
+cone_df_clean <- cone_df_clean |> 
+  left_join(fm_df, by = "site")
+
+# cone_density_df <- cone_df_clean |>
+#   mutate(cones_per_g = count/weight) |>
+#   group_by(date_collected, site, tree, quadrat_location, total_mass) |>
+#   summarize(mean_cones_per_g = mean(cones_per_g)) |>
+#   mutate(total_cones = mean_cones_per_g * total_mass)
+
+cone_density_df <- cone_df_clean |>
+  mutate(weight_dry = weight-(weight*(mean_fm/100))) |> 
+  mutate(cones_per_g = count/weight_dry) |>
+  group_by(date_collected, site, tree, quadrat_location, total_mass) |>
+  summarize(mean_cones_per_g = mean(cones_per_g)) |>
   mutate(total_cones = mean_cones_per_g * total_mass)
 
 # #look at cone density between on-tree v on-ground quadrats
@@ -458,7 +476,7 @@ ggplot(sky_cone_index_df, aes(x = mean_norm_gam_index, y = mean_cones_per_g, col
 #try to add sky conditions as a fixed effect into the model
 mod_cc <- lm(mean_norm_gam_index ~ mean_cones_per_g + factor(sky_cone_index_df$condition), data = sky_cone_index_df)
 summary(mod_cc)
-r_sq_fe <- round(summary(mod_cc)$r.sq, 2)
+r_sq_fe <- round(summary(mod_cc)$r.sq, 3)
 
 ggplot(sky_cone_index_df, aes(x = mean_norm_gam_index, y = mean_cones_per_g, col = condition)) + 
   geom_point(alpha = 0.5) + 
@@ -471,6 +489,22 @@ ggplot(sky_cone_index_df, aes(x = mean_norm_gam_index, y = mean_cones_per_g, col
   annotate("text", x = -0.058, y = 70, label = paste0("R² = ",r_sq_fe,", p < 0.001")) +
   ggthemes::theme_few() + 
   stat_regline_equation(label.y = c(66, 63, 60), label.x = -0.068)  # one value per level of condition, in level order
+
+index_fit_sky_conditions <- ggplot(sky_cone_index_df, aes(x = mean_norm_gam_index, y = mean_cones_per_g, col = condition, shape = condition)) + 
+  geom_point(alpha = 0.5) + 
+  theme_bw() + 
+  geom_smooth(method = "lm", se = F) +
+  scale_color_viridis_d(option = "viridis") +
+  ylim(0,70) +
+  ggtitle("correlation of index values with manual cone density estimates") + 
+  xlab("spectral index") + 
+  ylab("cone density (# cones/g)") + 
+  annotate("text", x = -0.058, y = 70, label = paste0("R² = ",r_sq_fe,", p < 0.001")) +
+  ggthemes::theme_few() + 
+  stat_regline_equation(label.y = c(66, 63, 60), label.x = -0.068)
+
+ggsave(index_fit_sky_conditions, filename = "03_output/index_fit_2026.png",
+       width = 9, height = 6, units = "in", dpi = 300)
 
 ## cloud cover analysis with NOAA RTMA data ---------------------------------------------------
 
@@ -695,3 +729,22 @@ index_pheno_df |>
   theme_classic() +
   ylab("spectral index") + 
   xlab("percent cones open")
+
+#for grouped pheno
+anova_mod <- aov(mean_norm_gam_index ~ as.factor(pheno), data = index_pheno_df)
+summary(anova_mod)
+
+TukeyHSD(anova_mod)
+
+unique(cone_density_df$site)
+
+# tuk_mod <- TukeyHSD(anova_mod)
+# 
+# plot(tuk_mod)
+
+# #for all pheno
+# anova_mod <- aov(mean_norm_gam_index ~ as.factor(percent_cones_open), data = index_pheno_df)
+# summary(anova_mod)
+# 
+# TukeyHSD(anova_mod)
+

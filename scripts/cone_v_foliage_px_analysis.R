@@ -4,7 +4,11 @@ library(dplyr)
 library(tidyverse)
 library(raster)
 
+#lab desktop
 setwd("C:/Users/hmz25/Box/Katz lab/texas/")
+
+#hz mac
+setwd("/Users/hannahzonnevylle/Library/CloudStorage/Box-Box/Katz lab/texas")
 
 #path to filtered quadrat images
 img_folder <- "tx 2026 drone pics/cone_v_fol"
@@ -54,7 +58,9 @@ px_df #result is data frame with all pixel values from each photo
 
 px_df_long <- px_df |> 
   pivot_longer(cols = c("r","g","b"), names_to = "band", values_to = "dn") |> 
-  mutate(band = factor(band, c("r","g","b")))
+  mutate(band = factor(band, c("r","g","b"))) |> 
+  mutate(cone_or_fol = case_when(cone_or_fol == "fol" ~ "foliage", 
+                   TRUE ~ "cone"))
 
 
 #visualize where the max separation is between cone and foliage
@@ -68,10 +74,14 @@ ggplot(px_df_long) +
   geom_point(aes(x = dn, y = dn, col = band), alpha = 0.5) +
   facet_wrap(~cone_or_fol)
 
-ggplot(px_df_long) +
+cone_v_fol_dn <- ggplot(px_df_long) +
   geom_density(aes(x = dn, col = band)) +
   facet_wrap(~cone_or_fol) + 
+  xlab("digital number value") +
   theme_classic()
+
+# ggsave(cone_v_fol_dn, filename = "03_output/cone_v_fol_dn.png", dpi = 300,
+#        width = 6, height = 4, units = "in")
 
 #visualize new indices on quadrat imgs
 wade_t7 <- stack("tx 2026 drone pics/2026 quadrat pics/cropped_quadrat_pics/masked_cropped_quadrat_pics/wade_t7_tree.tif")

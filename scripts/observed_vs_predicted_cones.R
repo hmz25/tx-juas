@@ -1,13 +1,19 @@
+#script to create cone density estimates for calibration trees in 2024, 2025, and 2026 field seasons
+
+#set up work environment
 library(tidyverse)
 library(data.table) # install.packages("data.table")
 library(lubridate)
 library(janitor)
 
+#hz laptop
+setwd("/Users/hannahzonnevylle/Library/CloudStorage/Box-Box/Katz lab/texas")
+
 #note for HZ -- went in and manually added canopy area and height for cal trees directly to google sheets
 ##loading in separate dfs for 2024 + 2025 because same tree was named differently in years 1 and 2
 
 #load in calibration trees from 2024 + clean df
-cal_trees_24 <- read_csv("C:/Users/hmz25/Box/Katz lab/texas/calibration_trees_2024.csv")
+cal_trees_24 <- read_csv("01_data/calibration_trees_2024.csv")
 
 cal_trees_24_clean <- cal_trees_24 %>% 
   filter(!is.na(focal_tree_n_24)) %>%
@@ -28,7 +34,7 @@ cal_trees_24_clean <- cal_trees_24 %>%
 
 ##for 2025, match the cones/g with the cones/g from the counts (don't yet have separate cone counts for cal trees as with 2024)
 
-cal_trees_25 <- read_csv("C:/Users/hmz25/Box/Katz lab/texas/calibration_trees_2025.csv")
+cal_trees_25 <- read_csv("01_data/calibration_trees_2025.csv")
 
 cal_trees_25 <- cal_trees_25 %>% 
   rename(tree = focal_tree_number) %>% 
@@ -36,7 +42,7 @@ cal_trees_25 <- cal_trees_25 %>%
   summarize(mean_branch_weight = mean(total_weight))
 
 ##cone counts for the focal trees 
-cone_counts_25 <- read_csv("C:/Users/hmz25/Box/Katz lab/texas/cone processing 25 - counts.csv")
+cone_counts_25 <- read_csv("01_data/cone processing 25 - counts.csv")
 
 ##join with branch count/weight data 
 cal_trees_25_clean <- cal_trees_25 %>% 
@@ -50,8 +56,36 @@ cal_trees_25_clean <- cal_trees_25 %>%
     names_pattern = "s(\\d+)_(.*)") %>% 
   rename(site = location)
 
+#load in calibration trees for 2026 + clean df
+cal_trees_26 <- read_csv("01_data/cone processing 26 - calibration trees.csv")
+
+# #check canopy area + height for cal trees 
+# fieldmaps_df <- read_csv("01_data/all_trees_shp_clean.csv")
+# 
+# fieldmaps_df |> 
+#   filter(site == "wade",
+#          year == 2026,
+#          focal_tree_number == 12) |> 
+#   View()
+
+#added in manually to google sheets based on field maps data
+
+cal_trees_26_clean <- cal_trees_26 |> 
+  rename(location = site,
+         weight_subsample = subsample_weight,
+         weight_sample = Sample_weight) %>% #to fix pivoting issues
+  pivot_longer(cols = starts_with("s"),
+               names_to = c("sample_n", ".value"),
+               names_pattern = "s(\\d+)_(.*)") %>% 
+  rename(site = location) #switching back to naming convention
+
 #calculate cones/g for entire tree based on weight of branch
 #weight_dry is calculated by using the wet:dry conversion factor that was calculated in "foliar_moisture" script 
+#don't have foliar moisture data for 2024, use the mean of 2025 + 2026 
+#2025 fm conversion = 0.431
+#2026 fm conversion = 0.467
+#so 2024 should be = 0.449
+#estimated_dry_weight = wet_sample * (1 - pct_water / 100)
 
 cal_tree_24_cone_per_g <- cal_trees_24_clean %>%
   mutate(weight_dry = weight-(weight*0.431)) %>% 
@@ -71,9 +105,21 @@ cal_tree_25_cone_per_g <- cal_trees_25_clean %>%
             .groups = "drop") %>% 
   mutate(total_cones_per_g = mean_cones_per_g_branch * total_branches)
 
+cal_tree_26_cone_per_g <- cal_trees_26_clean %>%
+  mutate(weight_dry = weight-(weight*0.4671)) %>% 
+  mutate(cones_per_g = count / weight_dry) %>%
+  group_by(date_collected, site, focal_tree_number, total_branches, canopy_area, height) %>%
+  summarise(
+    mean_cones_per_g_branch = mean(cones_per_g * total_weight),
+    .groups = "drop"
+  ) %>%
+  mutate(total_cones_per_g = mean_cones_per_g_branch * total_branches) |> 
+  mutate(height = as.character(height))
+
+#create df with cones per g for all focal trees 
 cal_trees_cones_per_g <- cal_tree_24_cone_per_g %>% 
   mutate(height = as.character(height)) %>% 
-  bind_rows(cal_tree_25_cone_per_g)
+  bind_rows(cal_tree_25_cone_per_g, cal_tree_26_cone_per_g)
 
 #calculate cones/g for these trees based on allometric equations
 
