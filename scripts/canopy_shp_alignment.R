@@ -13,12 +13,12 @@ library(tidyverse)
 #mo comp 
 setwd("C:/Users/HMZ/Box/texas")
 
-#read in for coordinates used to calculate offset (generated in ortho_alignment script)
+#read in for coordinates used to calculate offset (generated in ortho_alignment script, went through and manually selected right coords file)
 
 # coords <- read_csv("aligned_orthos/gcps_sonora_20250115_transparent_mosaic_group1.csv")  
 # #ref_x, ref_y = coords from img to align to, tgt_x, tgt_y = current coords
 
-coords_dir <- "03_output/aligned_orthos"
+coords_dir <- "03_output/coords_shp_alignment"
 coords_list <- list.files(coords_dir, full.names = F, pattern = ".csv")
 coords_list_full <- list.files(coords_dir, full.names = T, pattern = ".csv")
 
@@ -30,11 +30,9 @@ coord_file_info <- list()
 
 for (i in seq_along(coords_list)) {
   file_name <- coords_list[i]
+  site <- substr(str_split_i(file_name, "_", 2), 1, 4)
   
-  site <- str_split_i(file_name, "_", 2)
-  date <- as.Date(str_split_i(file_name, "_", 3), "%Y%m%d")
-  
-  coord_file_info[[i]] <- list(
+  coord_file_info[[site]] <- list(
     site     = substr(site,1,4),
     date     = date,
     filename = file_name,
@@ -42,25 +40,7 @@ for (i in seq_along(coords_list)) {
   )
 }
 
-#select the earliest 2025 file per site
-sites <- unique(sapply(coord_file_info, `[[`, "site"))
-
-earliest_2025 <- list()
-
-for (i in seq_along(sites)) {
-  s <- sites[i]
-  
-  # subset to this site, 2025 only
-  site_files <- Filter(function(x) x$site == s & format(x$date, "%Y") == "2025", coord_file_info)
-  
-  if (length(site_files) == 0) next  # skip if no 2025 files for this site
-  
-  # pick the one with the minimum date
-  dates <- sapply(site_files, `[[`, "date")
-  earliest_2025[[s]] <- site_files[[which.min(dates)]]
-}
-
-earliest_2025
+coord_file_info
 
 #select shape file
 # shp <- st_read("2025 juas qgis/sono_canopy_seg_fixed.shp")
@@ -71,18 +51,18 @@ shp_dir <- "01_data/canopy segmentation"
 shp_list <- list.files(shp_dir, full.names = F, pattern = "_fixed.shp")
 shp_list_full <- list.files(shp_dir, full.names = T, pattern = "_fixed.shp")
 
-#for female canopy analysis
-shp_dir <- "01_data/female tree index analysis/shp"
-shp_list <- list.files(shp_dir, full.names = F, pattern = ".shp")
-shp_list_full <- list.files(shp_dir, full.names = T, pattern = ".shp")
+# #for female canopy analysis
+# shp_dir <- "01_data/female tree index analysis/shp"
+# shp_list <- list.files(shp_dir, full.names = F, pattern = ".shp")
+# shp_list_full <- list.files(shp_dir, full.names = T, pattern = ".shp")
 
 output_dir <- "03_output/corrected_canopy_shp/"
 
-#for female canopy analysis 
-output_dir <- "01_data/female tree index analysis/corrected_shp/"
-# dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+# #for female canopy analysis 
+# output_dir <- "01_data/female tree index analysis/corrected_shp/"
+# # dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
-# i = 3
+# i = 1
 
 for (i in seq_along(shp_list)) {
   
@@ -95,12 +75,12 @@ for (i in seq_along(shp_list)) {
   
   #pull matching coords file
   #skip if no matching coords file
-  if (is.null(earliest_2025[[site]])) {
+  if (is.null(coord_file_info[[site]])) {
     print(paste0("no matching coords file for site: ", site))
     next
   }
   
-  coords_file <- earliest_2025[[site]]$filepath
+  coords_file <- coord_file_info[[site]]$filepath
   coords <- read_csv(coords_file)
   
   #reproject shp file to be in same CRS at csv files
