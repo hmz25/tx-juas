@@ -21,7 +21,10 @@ cal_trees_24_clean <- cal_trees_24 %>%
   pivot_longer(cols = starts_with("s"),
                names_to = c("sample_n", ".value"),
                names_pattern = "s(\\d+)_(.*)") %>% 
-  rename(site = location) #switching back to naming convention
+  rename(site = location, #switching back to naming convention
+         date_collected = `date collected`,
+         branch_weight = `total branch mass`) |> 
+  mutate(tree = as.character(focal_tree_n_25))
 
 # cal_trees_24_clean %>% 
 #   filter(site == "wade") %>% 
@@ -38,7 +41,7 @@ cal_trees_25 <- read_csv("01_data/calibration_trees_2025.csv")
 
 cal_trees_25 <- cal_trees_25 %>% 
   rename(tree = focal_tree_number) %>% 
-  group_by(date_collected, site, tree, total_branches, canopy_area, height) %>% 
+  group_by(date_collected, site, tree, total_branches, canopy_area, height, branch_n) %>% 
   summarize(mean_branch_weight = mean(total_weight))
 
 ##cone counts for the focal trees 
@@ -54,7 +57,10 @@ cal_trees_25_clean <- cal_trees_25 %>%
     cols = starts_with("s"),
     names_to = c("sample_n", ".value"),
     names_pattern = "s(\\d+)_(.*)") %>% 
-  rename(site = location)
+  rename(site = location,
+         date_collected = date_collected.x,
+         branch_weight = total_mass,
+         branch = branch_n)
 
 #load in calibration trees for 2026 + clean df
 cal_trees_26 <- read_csv("01_data/cone processing 26 - calibration trees.csv")
@@ -77,49 +83,52 @@ cal_trees_26_clean <- cal_trees_26 |>
   pivot_longer(cols = starts_with("s"),
                names_to = c("sample_n", ".value"),
                names_pattern = "s(\\d+)_(.*)") %>% 
-  rename(site = location) #switching back to naming convention
+  rename(site = location,
+         branch_weight = total_weight,
+         tree = focal_tree_number,
+         branch = branch_n) |> 
+  mutate(height = as.character(height),
+         tree = as.character(tree))
 
-#calculate cones/g for entire tree based on weight of branch
-#weight_dry is calculated by using the wet:dry conversion factor that was calculated in "foliar_moisture" script 
-#don't have foliar moisture data for 2024, use the mean of 2025 + 2026 
-#2025 fm conversion = 0.431
-#2026 fm conversion = 0.467
-#so 2024 should be = 0.449
-#estimated_dry_weight = wet_sample * (1 - pct_water / 100)
-
-cal_tree_24_cone_per_g <- cal_trees_24_clean %>%
-  mutate(weight_dry = weight-(weight*0.431)) %>% 
-  mutate(cones_per_g = count / weight_dry) %>%
-  group_by(`date collected`, site, `cone density`, focal_tree_n_24, focal_tree_n_25, total_branches, canopy_area, height) %>%
-  summarise(
-    mean_cones_per_g_branch = mean(cones_per_g * `total branch mass`),
-    .groups = "drop"
-  ) %>%
-  mutate(total_cones_per_g = mean_cones_per_g_branch * total_branches)
-
-cal_tree_25_cone_per_g <- cal_trees_25_clean %>%
-  mutate(weight_dry = weight-(weight*0.431)) %>%
-  mutate(cones_per_g = count / weight_dry) %>%
-  group_by(date_collected.x, site, tree, total_branches, mean_branch_weight, total_mass, canopy_area, height) %>% 
-  summarize(mean_cones_per_g_branch = mean(cones_per_g*total_mass),
-            .groups = "drop") %>% 
-  mutate(total_cones_per_g = mean_cones_per_g_branch * total_branches)
-
-cal_tree_26_cone_per_g <- cal_trees_26_clean %>%
-  mutate(weight_dry = weight-(weight*0.4671)) %>% 
-  mutate(cones_per_g = count / weight_dry) %>%
-  group_by(date_collected, site, focal_tree_number, total_branches, canopy_area, height) %>%
-  summarise(
-    mean_cones_per_g_branch = mean(cones_per_g * total_weight),
-    .groups = "drop"
-  ) %>%
-  mutate(total_cones_per_g = mean_cones_per_g_branch * total_branches) |> 
-  mutate(height = as.character(height))
-
-#create df with cones per g for all focal trees 
-cal_trees_cones_per_g <- cal_tree_24_cone_per_g %>% 
+#combine df 
+cal_trees_total <- cal_trees_24_clean %>% 
   mutate(height = as.character(height)) %>% 
-  bind_rows(cal_tree_25_cone_per_g, cal_tree_26_cone_per_g)
+  bind_rows(cal_trees_25_clean, cal_trees_26_clean) |> 
+  mutate(year = as.character(str_extract(date_collected, "\\d{4}$")))
+
+#bring in foliar moisture data
+fm_df <- read_csv("03_output/sample_perc_moisture_df.csv") |> 
+  mutate(site = substr(site,1,4)) |> 
+  mutate(year = as.character(year))
+
+#join cone df and foliar moisture df
+#didn't collect fm data in 2024, so populate with mean across sites + years
+
+#calculate mean fm for 2025-2026
+mean_fm_val <- fm_df |>
+  filter(year %in% c(2025, 2026)) |>
+  summarise(total_mean_fm = mean(mean_fm, na.rm = TRUE)) |>
+  pull(total_mean_fm)
+
+cal_trees_total <- cal_trees_total |>
+  mutate(site = substr(site, 1, 4)) |>
+  left_join(fm_df, by = c("site", "year")) |>
+  mutate(mean_fm = if_else(year == 2024, mean_fm_val, mean_fm))
+
+#calculate cones/g for focal trees
+cal_trees_cone_density <- cal_trees_total |>
+  select(date_collected, site, tree, branch, branch_weight, total_branches,
+         canopy_area, sample_n, weight, count, year, mean_fm) |> 
+  mutate(weight_dry = weight-(weight*(mean_fm/100)),
+         branch_weight_dry = branch_weight-(branch_weight*(mean_fm)/100)) |> 
+  mutate(cones_per_g = count/weight_dry) |>
+  group_by(tree, site, branch, date_collected, year, branch_weight_dry, total_branches, canopy_area) |>
+  summarize(cones_per_g_branch = mean(cones_per_g)) |>
+  group_by(tree, site, date_collected, year, total_branches, canopy_area) |> 
+  summarize(mean_cones_per_g = mean(cones_per_g_branch),
+            mean_branch_weight_dry = mean(branch_weight_dry)) |> 
+  mutate(mean_branch_cones_per_g = mean_cones_per_g * mean_branch_weight_dry,
+         total_cones_per_g_obs = mean_branch_cones_per_g * total_branches)
 
 #calculate cones/g for these trees based on allometric equations
 
@@ -130,14 +139,55 @@ cal_trees_cones_per_g <- cal_tree_24_cone_per_g %>%
 # a and b = estimated constants
 # x = size (defined by canopy area)
 
+#below is 2025 data 
 #according to allometry analysis script...
 #a = 1.612571  
 #b = 1.06618
 
-cal_trees_cones_per_g_allom <- cal_trees_cones_per_g %>% 
-  mutate(biomass_kg = 1.612571*(canopy_area^1.06618))
+# cal_trees_cones_per_g_allom <- cal_trees_cones_per_g %>% 
+#   mutate(biomass_kg = 1.612571*(canopy_area^1.06618))
+
+#this is 2026 data 
+cal_trees_cone_density <- cal_trees_cone_density |> 
+  mutate(crown_biomass_kg = 1.55*(canopy_area^1.09))
 
 #bring in the index value, which gives estimates cones/g
+
+df <- read_csv("03_output/filtered_summary_index_df.csv") |> 
+  mutate(year = substr(flight_date,1,4)) #eventually can delete this when update the data frame to have correct year
+
+df <- summary_index_df_clean |> 
+  mutate(year = substr(flight_date,1,4)) |> 
+  mutate(year = as.character(year))
+
+df_combined <- cal_trees_cone_density |> 
+  rename(fcl_tr_=tree) |> 
+  mutate(fcl_tr_=as.double(fcl_tr_)) |> 
+  left_join(df, by = c("site", "fcl_tr_", "year"))
+
+df_combined_clean <- df_combined |> 
+  group_by(across(fcl_tr_:crown_biomass_kg), condition) |> 
+  summarize(mean_index = mean(rg_index_mean)) |> 
+  drop_na(mean_index) |> 
+  ungroup() |> 
+  slice(-c(1, 5, 8))
+
+obs_v_est_cone_dens <- df_combined_clean |> 
+  mutate(index_cones_per_g = case_when( 
+    condition == "cloudy" ~ (1100 * mean_index) + 66,
+    condition == "mixed" ~ (1800 * mean_index) + 61,
+    condition == "sunny" ~ (1100 * mean_index) + 41
+  )) |> 
+  mutate(total_crown_biomass_g = crown_biomass_kg*1000,
+         total_cones_per_g_pred = total_crown_biomass_g * index_cones_per_g)
+
+obs_v_est_cone_dens |> 
+  ggplot() +
+  geom_point(aes(x = total_cones_per_g_obs, y = total_cones_per_g_pred)) +
+  theme_classic()
+
+
+###
 
 rg_index_df <- fread("C:/Users/hmz25/Box/Katz lab/texas/rg_index_df_20250729.csv")
 head(rg_index_df)
@@ -194,7 +244,7 @@ rg_index_2025 <- rg_index_year_df %>%
 # wade_t5_index <- rg_index_2024 %>% 
 #   filter(site %in% "wade",
 #          tree %in% 5)
-  
+
 
 #join index values with calibration data
 head(cal_trees_cones_per_g_allom)
@@ -298,8 +348,8 @@ mean(wade_t5_df$index)
 
 wade_t5_df <- wade_t5_df %>% 
   mutate(rg_index_thresh = if_else(index < 0.05, 0, 1),
-       rg_index_thresh_mean = mean(rg_index_thresh),
-       rg_index_thresh_sum = rg_index_thresh_mean*((length(rg_index_thresh) - sum(rg_index_thresh == 0))/length(rg_index_thresh)))
+         rg_index_thresh_mean = mean(rg_index_thresh),
+         rg_index_thresh_sum = rg_index_thresh_mean*((length(rg_index_thresh) - sum(rg_index_thresh == 0))/length(rg_index_thresh)))
 
 est_cones_wade_t5 <- (3.418 + 151.475*0.00747147)*(81.46096*1000)
 
@@ -457,3 +507,50 @@ ggplot(final_df) +
   scale_x_continuous(limits = plot_limits) +
   scale_y_continuous(limits = plot_limits) +
   theme_classic()
+
+
+### below is old code that works but not sure if it's right/the best way to do it
+
+#calculate cones/g for entire tree based on weight of branch
+#weight_dry is calculated by using the wet:dry conversion factor that was calculated in "foliar_moisture" script 
+#don't have foliar moisture data for 2024, use the mean of 2025 + 2026 
+#2025 fm conversion = 0.431
+#2026 fm conversion = 0.467
+#so 2024 should be = 0.449
+#estimated_dry_weight = wet_sample * (1 - pct_water / 100)
+
+cal_tree_24_cone_per_g <- cal_trees_24_clean %>%
+  mutate(weight_dry = weight-(weight*0.431)) %>% 
+  mutate(cones_per_g = count / weight_dry) %>%
+  group_by(date_collected, site, `cone density`, focal_tree_n_24, focal_tree_n_25, total_branches, canopy_area, height) %>%
+  summarise(
+    mean_cones_per_g_branch = mean(cones_per_g * `total branch mass`),
+    .groups = "drop"
+  ) %>%
+  mutate(total_cones_per_g = mean_cones_per_g_branch * total_branches) 
+
+cal_tree_25_cone_per_g <- cal_trees_25_clean %>%
+  mutate(weight_dry = weight-(weight*0.431)) %>%
+  mutate(cones_per_g = count / weight_dry) %>%
+  group_by(date_collected, site, tree, total_branches, mean_branch_weight, total_mass, canopy_area, height) %>% 
+  summarize(mean_cones_per_g_branch = mean(cones_per_g*total_mass),
+            .groups = "drop") %>% 
+  mutate(total_cones_per_g = mean_cones_per_g_branch * total_branches)
+
+cal_tree_26_cone_per_g <- cal_trees_26_clean %>%
+  mutate(weight_dry = weight-(weight*0.4671)) %>% 
+  mutate(cones_per_g = count / weight_dry) %>%
+  group_by(date_collected, site, focal_tree_number, total_branches, canopy_area, height) %>%
+  summarise(
+    mean_cones_per_g_branch = mean(cones_per_g * total_weight),
+    .groups = "drop"
+  ) %>%
+  mutate(total_cones_per_g = mean_cones_per_g_branch * total_branches) |> 
+  mutate(height = as.character(height))
+
+#create df with cones per g for all focal trees 
+cal_trees_cones_per_g <- cal_tree_24_cone_per_g %>% 
+  mutate(height = as.character(height)) %>% 
+  bind_rows(cal_tree_25_cone_per_g, cal_tree_26_cone_per_g)
+
+
