@@ -66,11 +66,12 @@ cone_df_clean <- cone_df_clean |>
 #   mutate(total_cones = mean_cones_per_g * total_mass)
 
 cone_density_df <- cone_df_clean |>
-  mutate(weight_dry = weight-(weight*(mean_fm/100))) |> 
+  mutate(weight_dry = weight-(weight*(mean_fm/100)),
+         total_mass_dry = total_mass-(total_mass*(mean_fm/100))) |> 
   mutate(cones_per_g = count/weight_dry) |>
-  group_by(date_collected, site, tree, quadrat_location, total_mass) |>
+  group_by(date_collected, site, tree, quadrat_location, total_mass_dry) |>
   summarize(mean_cones_per_g = mean(cones_per_g)) |>
-  mutate(total_cones = mean_cones_per_g * total_mass)
+  mutate(total_cones = mean_cones_per_g * total_mass_dry)
 
 # #look at cone density between on-tree v on-ground quadrats
 # cone_df_clean |> 
@@ -138,8 +139,7 @@ index_df <- quadrat_px_df_gam |>
             g_norm_gam_8bit_mean = mean(g_norm_gam_8bit),
             b_norm_gam_8bit_mean = mean(b_norm_gam_8bit)) |>
   group_by(photo, site, tree, quadrat_location, across(r_mean:b_norm_gam_8bit_mean)) |>
-  summarize(mean_norm_gam_index = (r_norm_gam_mean - g_norm_gam_mean)/(r_norm_gam_mean/g_norm_gam_mean),
-            mean_norm_gam_8bit_index = (r_norm_gam_8bit_mean - g_norm_gam_8bit_mean)/(r_norm_gam_8bit_mean/g_norm_gam_8bit_mean)) |>
+  summarize(mean_rg_index = ((r_norm_gam_mean - g_norm_gam_mean)/(r_norm_gam_mean + g_norm_gam_mean))) |>
   mutate(site = substr(site, 1, 4),
          tree = if_else(tree == "female", tree, str_remove(tree, "^t")))
 
@@ -161,7 +161,7 @@ cone_index_df <- cone_density_df |>
            format(lubridate::ymd(str_split_i(photo, "_", 2)), "%m/%d/%Y"),
            date_collected)
   ) |>  
-  drop_na(mean_norm_gam_index) |> 
+  drop_na(mean_rg_index) |> 
   filter(quadrat_location == "tree", #limit analysis to on-tree quadrats
          !site == "good", #photos taken at 150 ft
          !photo %in% c("windmill_t1_tree", 
@@ -178,7 +178,7 @@ cone_index_df <- cone_density_df |>
 #correlation of index values with on-tree quadrat cone density
 
 #model for index using bit-scaled index values 
-mod <- lm(mean_norm_gam_index ~ mean_cones_per_g, data = cone_index_df) 
+mod <- lm(mean_rg_index ~ mean_cones_per_g, data = cone_index_df) 
 summary(mod)
 r_sq <- round(summary(mod)$r.sq, 3)
 p_val <- round(coef(summary(mod))[2,4], 4)
@@ -187,29 +187,22 @@ p_val <- round(coef(summary(mod))[2,4], 4)
 cone_index_df_logit <- cone_index_df |> 
   #change y var into proportion for logistic fit
   mutate(mean_cones_per_g_prop = mean_cones_per_g/(max(cone_index_df$mean_cones_per_g)),
-         mean_norm_gam_index_rescale = (mean_norm_gam_index - min(cone_index_df$mean_norm_gam_index))/
-           (max(cone_index_df$mean_norm_gam_index) - min(cone_index_df$mean_norm_gam_index)))
+         mean_rg_index_rescale = (mean_rg_index - min(cone_index_df$mean_rg_index))/
+           (max(cone_index_df$mean_rg_index) - min(cone_index_df$mean_rg_index)))
 
 #fit model where Y is continuous proportion and X is continuous
 # mod_quasi <- glm(mean_norm_gam_index_rescale ~ mean_cones_per_g, data = cone_index_df_logit, 
 #                  family = quasibinomial(link = "logit"))
 
-mod_logit <- glm(mean_norm_gam_index_rescale ~ mean_cones_per_g, data = cone_index_df_logit, 
+mod_logit <- glm(mean_rg_index_rescale ~ mean_cones_per_g, data = cone_index_df_logit, 
                  family = "binomial")
 
 summary(mod_logit)
 
 AIC(mod, mod_logit)
 
-# #model for index calculated with 8bit gamma corrected + normalized bands
-# #gives same result :-)
-# mod <- lm(mean_norm_gam_8bit_index ~ mean_cones_per_g, data = cone_index_df) 
-# summary(mod)
-# r_sq <- round(summary(mod)$r.sq, 3)
-# p_val <- round(coef(summary(mod))[2,4], 4)
-
-
-ggplot(cone_index_df, aes(x = mean_norm_gam_index, y = mean_cones_per_g)) + 
+#plot cone density v index val
+ggplot(cone_index_df, aes(x = mean_rg_index, y = mean_cones_per_g)) + 
   geom_point(alpha = 0.5) + 
   theme_bw() + 
   geom_smooth(method = "lm", se = TRUE) +
@@ -474,7 +467,7 @@ ggplot(sky_cone_index_df, aes(x = mean_norm_gam_index, y = mean_cones_per_g, col
   ggthemes::theme_few()
 
 #try to add sky conditions as a fixed effect into the model
-mod_cc <- lm(mean_norm_gam_index ~ mean_cones_per_g + factor(sky_cone_index_df$condition), data = sky_cone_index_df)
+mod_cc <- lm(mean_rg_df_index ~ mean_cones_per_g + factor(sky_cone_index_df$condition), data = sky_cone_index_df)
 summary(mod_cc)
 r_sq_fe <- round(summary(mod_cc)$r.sq, 3)
 
@@ -747,4 +740,142 @@ unique(cone_density_df$site)
 # summary(anova_mod)
 # 
 # TukeyHSD(anova_mod)
+
+# how does index fit change when subtract median female val ---------------
+
+#calculate index val for each quadrat
+gam <- 2.2
+
+test_df <- quadrat_px_df |> 
+  filter(quadrat_location == "tree",
+         adjustment == "unadj") |> 
+  #apply gamma correction
+  mutate(r_lin = (r / 255)^(1/gam),
+          g_lin = (g / 255)^(1/gam),
+          b_lin = (b / 255)^(1/gam)) |>
+  #make brightness invariant
+  mutate(r_norm_gam = r_lin / (r_lin + g_lin + b_lin),
+         g_norm_gam = g_lin / (r_lin + g_lin + b_lin),
+         b_norm_gam = b_lin / (r_lin + g_lin + b_lin)) |> 
+  group_by(site,tree,photo) |> 
+  summarize(mean_r = mean(r),
+            mean_g = mean(g),
+            mean_b = mean(b),
+            mean_r_adj = mean(r_norm_gam),
+            mean_g_adj = mean(g_norm_gam),
+            mean_b_adj = mean(b_norm_gam)) |> 
+  mutate(mean_index = (mean_r - mean_g)/(mean_r + mean_g),
+         mean_index_adj = (mean_r_adj - mean_g_adj)/(mean_r_adj + mean_g_adj))
+
+#read in pixel values for all dates/flights
+px_df <- read_csv("03_output/summary_ortho_px_df.csv")
+
+#load in field maps data to give info on which poly_ids are female
+fieldmaps_df <- read_csv("01_data/all_trees_shp_clean.csv")
+
+#subset to just female trees 
+female_df <- fieldmaps_df |> 
+  filter(classification == "female")
+
+#use poly ids for female trees to subset px df
+female_px_df <- px_df %>%
+  filter(poly_id %in% female_df$poly_id)
+
+#calculate median index value for each female in each site/flight combo
+female_index_df <- female_px_df |> 
+  group_by(site, poly_id, flight_date) |> 
+  summarize(mean_index = (mean_r - mean_g)/(mean_r + mean_g),
+            mean_index_adj = (mean_r_norm_gam - mean_g_norm_gam)/(mean_r_norm_gam + mean_g_norm_gam))
+
+#take median value of mean index for all females in a given site/flight date
+median_female_index_df <- female_index_df |> 
+  group_by(site, flight_date) |> 
+  summarize(median_index = median(mean_index),
+            median_index_adj = median(mean_index_adj))
+
+#get 2026 median values 
+median_female_index_2026 <- median_female_index_df |> 
+  mutate(year = substr(flight_date,1,4)) |> 
+  filter(year == "2026") |> 
+  drop_na() |> 
+  #accounting for the one site i have processed 2 flights for
+  group_by(site) |> 
+  summarize(median_fem_index = mean(median_index),
+            median_fem_index_adj = mean(median_index_adj))
+
+# #bring in date metadata to link with px values
+# #unnecessary right now bc only have one flight processed from 2026 field season ... 
+# date_meta <- read_csv("01_data/2026 TX drone pics metadata - focal tree metadata.csv")
+# 
+# date_meta_clean <- date_meta |> 
+#   mutate(tree = paste0("t",focal_tree_n)) |> 
+#   select(c(site, tree, date)) |> 
+#   mutate(site = substr(site,1,4))
+# 
+# #link px values to dates
+# test_df_clean <- test_df |> 
+#   filter(tree != "female") |> 
+#   mutate(site = substr(site,1,4)) |> 
+#   left_join(date_meta_clean, by = c("site","tree")) |> 
+#   mutate(date = if_else(is.na(date), "01/07/2026", date)) 
+
+#subtract median female value from mean index value per site/flight
+test_df_clean <- test_df |> 
+  filter(tree != "female") |> 
+  mutate(site = substr(site,1,4)) |> 
+  left_join(median_female_index_2026) |> 
+  ungroup() |> 
+  #fill missing values with mean from all sites
+  mutate(median_fem_index = if_else(is.na(median_fem_index), 
+                                    mean(median_fem_index,na.rm = T), 
+                                    median_fem_index)) |> 
+  mutate(mean_index_sub_fem = (mean_index-median_fem_index),
+         mean_index_adj_sub_fem = (mean_index_adj - median_fem_index_adj))
+
+#join with cone density df 
+test_index_df <- cone_density_df |> 
+  mutate(tree = paste0("t",tree)) |> 
+  filter(quadrat_location == "tree") |> 
+  full_join(test_df_clean, cone_density_df, by = c("site", "tree")) |> 
+  drop_na(mean_index_adj) |> 
+  filter(!site == "good", #photos taken at 150 ft
+         !photo %in% c("windmill_t1_tree", 
+                       "celltower_t2_tree", 
+                       "wade_t5_tree",
+                       "gun_t5_tree",
+                       "kimble_t2_tree",
+                       "rocky_t3_tree",
+                       "kimble_t2_tree")) #exclude excessively shaded quadrat imgs + use wade_t5_tree_2 in analysis
+
+#run lm to see how it compares in fit 
+mod <- lm(mean_index_sub_fem ~ mean_cones_per_g, data = test_index_df) 
+summary(mod)
+r_sq <- round(summary(mod)$r.sq, 3)
+p_val <- round(coef(summary(mod))[2,4], 4)
+
+ggplot(test_index_df, aes(x = mean_index_adj, y = mean_cones_per_g)) + 
+  geom_point(alpha = 0.5) + 
+  theme_bw() + 
+  geom_smooth(method = "lm", se = TRUE) +
+  ggtitle("correlation of index values with cone estimates from quadrats on tree") + 
+  xlab("spectral index") + ylab("cones density (cones/g") + 
+  annotate("text", x = -0.05, y = 120, label = paste("R² =",r_sq)) +
+  annotate("text", x = -0.05, y = 110, label = paste("p =",p_val)) +
+  ggthemes::theme_few() 
+
+mod <- lm(mean_index_adj_sub_fem ~ mean_cones_per_g, data = test_index_df) 
+summary(mod)
+r_sq <- round(summary(mod)$r.sq, 3)
+p_val <- round(coef(summary(mod))[2,4], 4)
+
+ggplot(test_index_df, aes(x = mean_index_adj, y = mean_cones_per_g)) + 
+  geom_point(alpha = 0.5) + 
+  theme_bw() + 
+  geom_smooth(method = "lm", se = TRUE) +
+  ggtitle("correlation of index values with cone estimates from quadrats on tree") + 
+  xlab("spectral index") + ylab("cones density (cones/g") + 
+  annotate("text", x = -0.05, y = 120, label = paste("R² =",r_sq)) +
+  annotate("text", x = -0.05, y = 110, label = paste("p =",p_val)) +
+  ggthemes::theme_few() 
+
 
