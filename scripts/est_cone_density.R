@@ -3,9 +3,14 @@ library(tidyverse)
 library(ggpubr)
 library(rstatix)
 library(multcompView)
+library(patchwork)
+library(mgcv)     # for GAM
+library(splines)  # for spline regression
 
 
 setwd('/Users/hannahzonnevylle/Library/CloudStorage/Box-Box/Katz lab/texas')
+
+setwd("C:/Users/HMZ/Box/texas")
 
 # read in ortho pixel values ----------------------------------------------------
 
@@ -15,7 +20,7 @@ df <- read_csv("03_output/summary_ortho_px_df.csv")
 length(unique(df$poly_id))
 unique(df$site)
 
-df2 <- read_csv("~/Downloads/oneflight_ortho_px_df.csv") |> 
+df2 <- read_csv("03_output/oneflight_ortho_px_df.csv") |> 
   mutate(poly_st = site)
 
 df <- df |> 
@@ -44,7 +49,7 @@ fieldmaps_df <- fieldmaps_df |>
 df_index_clean <- df_index |> 
   left_join(fieldmaps_df, by = c("poly_id","site")) |> 
   #remove empty id column automatically imported from qgis
-  select(-id) 
+  dplyr::select(-id) 
 
 # estimate cone/g for each tree based on index ----------------------------
 
@@ -68,7 +73,7 @@ sky_df_24_clean <- sky_df_24 |>
   rename(date_collected = date)
 
 sky_df <- bind_rows(sky_df_26_clean, sky_df_25_clean, sky_df_24_clean) |> 
-  select(-notes)
+  dplyr::select(-notes)
 
 #correct format of date column 
 sky_df <- sky_df |> 
@@ -78,7 +83,7 @@ sky_df <- sky_df |>
 #join sky condition info with index info 
 df_clean <- df_index_clean |> 
   left_join(sky_df, by = c("site", "flight_date")) |> 
-  select(-date_collected)
+  dplyr::select(-date_collected)
 
 #apply correct regression for sky conditions
 #from index regressions... 
@@ -282,8 +287,162 @@ plot_df |>
 #1. canopy area
 #2. cone production in t-1
 
-#canopy area
-canopy_area_df <- read_csv("03_output/summary_ortho_px_df.csv")
 
+colnames(canopy_area_df)
+colnames(cone_density_est_df)
+
+mod_df <- cone_density_est_df %>% 
+  filter(area <= 100,
+         total_cone_density >=0) %>% 
+  group_by(site, poly_id, year, area) %>% 
+  summarize(mean_cones_per_g = mean(cones_per_g),
+            mean_total_cone_density = mean(total_cone_density), 
+            .groups = "drop")
+
+area_mod <- lm(mean_total_cone_density ~ area, data = mod_df)
+summary(area_mod)
+
+area_mod <- lm(mean_cones_per_g ~ area, data = mod_df)
+summary(area_mod)
+
+mod_summary <- summary(area_mod)
+intercept <- coef(area_mod)[1]
+slope <- coef(area_mod)[2]
+r2 <- round(mod_summary$r.squared,2)
+pval <- mod_summary$coefficients[2, 4]  # p-value for the slope
+
+ggplot(mod_df, aes(x = area, y = mean_cones_per_g, col = site)) +
+  geom_point() +
+  geom_smooth(method = "lm") + 
+  theme_classic()
+
+p1 <- ggplot(mod_df, aes(x = area, y = mean_cones_per_g)) +
+  geom_point() +
+  geom_smooth(method = "lm") + 
+  theme_classic() + 
+  ylab("cone density (cones/g)") +
+  xlab("canopy area") +
+  ggtitle("cone density ~ canopy area") + 
+  theme(plot.title = element_text(size = 18, face = "bold"),
+        axis.title = element_text(size = 16, face = "bold"),
+        axis.text = element_text(size = 14)) +
+  annotate("text", x = 5, y = 77, label = paste0("R² =", r2), hjust = 0) +
+  annotate("text", x = 5, y = 73, label = paste0("p < 0.001 "), hjust = 0)
+
+#quadratic
+area_mod_quad <- lm(mean_cones_per_g ~ poly(area, 2), data = mod_df)
+summary(area_mod_quad)
+
+#spline (natural cubic spline, 3 degrees of freedom — adjust df as needed)
+area_mod_spline <- lm(mean_cones_per_g ~ ns(area, df = 3), data = mod_df)
+summary(area_mod_spline)
+
+#GAM (smooth term automatically determines flexibility)
+area_mod_gam <- gam(mean_cones_per_g ~ s(area), data = mod_df)
+summary(area_mod_gam)
+
+area_mod_cubic <- lm(mean_cones_per_g ~ poly(area, 3), data = mod_df)
+summary(area_mod_cubic)
+
+#looking at t-1
+cone_density_summary_df <- cone_density_est_df %>% 
+  filter(area <= 100,
+         cones_per_g >= 0) %>% 
+  group_by(site, poly_id, year) %>% 
+  summarize(mean_cones_per_g = mean(cones_per_g),
+            mean_total_cone_density = mean(total_cone_density), 
+            .groups = "drop")
+
+cone_lag_df <- cone_density_summary_df %>% 
+  mutate(year = as.numeric(year)) %>% 
+  mutate(year = year + 1) %>% 
+  mutate(year = as.character(year)) |> 
+  rename(mean_cones_per_g_lag = mean_cones_per_g,
+         mean_total_cones_lag = mean_total_cone_density)
+
+#link with cone density data 
+mod_df2 <- cone_density_summary_df |> 
+  left_join(cone_lag_df, by = c("site", "year", "poly_id")) 
+
+cone_mod <- lm(mean_total_cone_density ~ mean_total_cones_lag, data = mod_df2)
+summary(cone_mod)
+
+cone_mod <- lm(mean_cones_per_g ~ mean_cones_per_g_lag, data = mod_df2)
+summary(cone_mod)
+
+mod_summary <- summary(cone_mod)
+intercept <- coef(cone_mod)[1]
+slope <- coef(cone_mod)[2]
+r2 <- round(mod_summary$r.squared,2)
+pval <- mod_summary$coefficients[2, 4]
+
+p2 <- ggplot(mod_df2, aes(x = mean_total_cones_lag, y = mean_total_cone_density)) +
+  geom_point() +
+  geom_smooth(method = "lm") + 
+  theme_classic() + 
+  ylab("total cones") +
+  xlab("total cones in year t-1") +
+  ggtitle("total cones ~ cone production in t-1") + 
+  theme(plot.title = element_text(size = 18, face = "bold"),
+        axis.title = element_text(size = 16, face = "bold"),
+        axis.text = element_text(size = 14)) +
+  annotate("text", x = 5, y = 9000000, label = paste0("R² = ", r2), hjust = 0) +
+  annotate("text", x = 5, y = 8300000, label = "p < 0.001", hjust = 0)
+
+ggplot(mod_df2, aes(x = mean_cones_per_g_lag, y = mean_cones_per_g)) +
+  geom_point() +
+  geom_smooth(method = "lm") + 
+  theme_classic() + 
+  ylab("cone density (cones/g)") +
+  xlab("total cones in year t-1") +
+  ggtitle("cone density ~ cone production in year t-1") + 
+  theme(plot.title = element_text(size = 25, face = "bold"),
+        axis.title = element_text(size = 20),
+        axis.text = element_text(size = 18)) +
+  annotate("text", x = 5, y = 9000000, label = paste0("R² = ", r2), hjust = 0) +
+  annotate("text", x = 5, y = 8300000, label = "p-val < 0.001", hjust = 0)
+
+p1 + p2
+
+mod3_df <- cone_density_est_df %>% 
+  filter(area <= 100,
+         cones_per_g >= 0) %>% 
+  group_by(site, poly_id, year, foliage_density) %>% 
+  summarize(mean_cones_per_g = mean(cones_per_g),
+            mean_total_cone_density = mean(total_cone_density), 
+            .groups = "drop")
+
+fol_mod <- lm(mean_cones_per_g ~ foliage_density, data = mod3_df)
+summary(fol_mod)
+
+mod4_df <- cone_density_est_df %>% 
+  filter(area <= 100,
+         cones_per_g >= 0) %>% 
+  group_by(site, poly_id, year, height) %>% 
+  summarize(mean_cones_per_g = mean(cones_per_g),
+            mean_total_cone_density = mean(total_cone_density), 
+            .groups = "drop")
+
+height_mod <- lm(mean_cones_per_g ~ height, data = mod4_df)
+summary(height_mod)
+
+mod_summary <- summary(area_mod)
+intercept <- coef(area_mod)[1]
+slope <- coef(area_mod)[2]
+r2 <- round(mod_summary$r.squared,2)
+pval <- mod_summary$coefficients[2, 4]  # p-value for the slope
+
+ggplot(mod3_df, aes(x = area, y = mean_cones_per_g)) +
+  geom_point() +
+  geom_smooth(method = "lm") + 
+  theme_classic() + 
+  ylab("cone density (cones/g") +
+  xlab("canopy area") +
+  ggtitle("cone density ~ canopy area") + 
+  theme(plot.title = element_text(size = 20, face = "bold"),
+        axis.title = element_text(size = 18),
+        axis.text = element_text(size = 14)) +
+  annotate("text", x = 20, y = 50, label = paste0("R² =", r2)) +
+  annotate("text", x = 25, y = 48, label = paste0("p-val < 0.001 "))
 
 
