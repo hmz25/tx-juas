@@ -212,7 +212,7 @@ ggplot(cone_index_df, aes(x = mean_rg_index, y = mean_cones_per_g)) +
   annotate("text", x = -0.085, y = 50, label = paste("p =",p_val)) +
   ggthemes::theme_few() 
 
-ggplot(cone_index_df, aes(x = mean_norm_gam_index, y = mean_cones_per_g)) + 
+ggplot(cone_index_df, aes(x = mean_rg_index, y = mean_cones_per_g)) + 
   geom_point(alpha = 0.5) + 
   theme_bw() + 
   geom_smooth(method = "lm", se = TRUE) +
@@ -467,11 +467,11 @@ ggplot(sky_cone_index_df, aes(x = mean_norm_gam_index, y = mean_cones_per_g, col
   ggthemes::theme_few()
 
 #try to add sky conditions as a fixed effect into the model
-mod_cc <- lm(mean_rg_df_index ~ mean_cones_per_g + factor(sky_cone_index_df$condition), data = sky_cone_index_df)
+mod_cc <- lm(mean_rg_index ~ mean_cones_per_g + factor(sky_cone_index_df$condition), data = sky_cone_index_df)
 summary(mod_cc)
 r_sq_fe <- round(summary(mod_cc)$r.sq, 3)
 
-ggplot(sky_cone_index_df, aes(x = mean_norm_gam_index, y = mean_cones_per_g, col = condition)) + 
+ggplot(sky_cone_index_df, aes(x = mean_rg_index, y = mean_cones_per_g, col = condition)) + 
   geom_point(alpha = 0.5) + 
   theme_bw() + 
   geom_smooth(method = "lm", se = F) +
@@ -483,18 +483,22 @@ ggplot(sky_cone_index_df, aes(x = mean_norm_gam_index, y = mean_cones_per_g, col
   ggthemes::theme_few() + 
   stat_regline_equation(label.y = c(66, 63, 60), label.x = -0.068)  # one value per level of condition, in level order
 
-index_fit_sky_conditions <- ggplot(sky_cone_index_df, aes(x = mean_norm_gam_index, y = mean_cones_per_g, col = condition, shape = condition)) + 
+index_fit_sky_conditions <- ggplot(sky_cone_index_df, aes(x = mean_rg_index, y = mean_cones_per_g, col = condition, shape = condition)) + 
   geom_point(alpha = 0.5) + 
   theme_bw() + 
   geom_smooth(method = "lm", se = F) +
-  scale_color_viridis_d(option = "viridis") +
+  scale_color_manual(values = c("#0047AB", "#4B2E6B", "#B5540B")) +
   ylim(0,70) +
-  ggtitle("correlation of index values with manual cone density estimates") + 
+  ggtitle("correlation of index with manual cone density estimates") + 
   xlab("spectral index") + 
   ylab("cone density (# cones/g)") + 
   annotate("text", x = -0.058, y = 70, label = paste0("R² = ",r_sq_fe,", p < 0.001")) +
   ggthemes::theme_few() + 
-  stat_regline_equation(label.y = c(66, 63, 60), label.x = -0.068)
+  stat_regline_equation(label.y = c(66, 63, 60), label.x = -0.068) +
+  theme(title = element_text(size = 20, face = "bold"),
+        axis.title = element_text(size = 18),
+        axis.text = element_text(size = 16),
+        strip.text = element_text(size = 16))
 
 ggsave(index_fit_sky_conditions, filename = "03_output/index_fit_2026.png",
        width = 9, height = 6, units = "in", dpi = 300)

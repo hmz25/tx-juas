@@ -1,6 +1,7 @@
 #script to generate allometric equations from collaborator data
 
 library(googlesheets4)
+library(tidyverse)
 library(dplyr)
 library(janitor)
 library(sf)
@@ -269,10 +270,26 @@ ggplot(allometry_crown_biomass_df, aes(x = exp(log_canopy_area), y = exp(log_tot
   labs(x = "canopy area (m)", y = "biomass (kg)",
        title = "allometric equation for J. ashei based on canopy area") + 
   theme_classic() + 
-  annotate("text", x = 1.8, y = 70, label = paste0("R² = ", round(summary(canopy_area_lm)$r.squared, 2))) +
+  annotate("text", x = 1.8, y = 70, label = paste0("R² = ", round(summary(canopy_area_lm)$r.squared, 3))) +
   annotate("text", x = 2.5, y = 65, label = paste0("p-val < 0.001 ")) +
   annotate("text", x = 2.3, y = 60, label = paste0("RMSE = ", round(canopy_area_rmse, 2))) + 
   geom_smooth(method = "lm")
+
+ggplot(allometry_crown_biomass_df, aes(x = exp(log_canopy_area), y = exp(log_total_biomass_kg))) +
+  geom_point() +
+  labs(x = "canopy area (m²)", y = "crown biomass (kg)",
+       title = expression(paste("canopy area allometric equation for ", italic("J. ashei"), ""))) + 
+  theme_classic() + 
+  theme(axis.title = element_text(size = 16),
+        axis.text = element_text(size = 14)) +
+  annotate("text", x = 1.8, y = 70, label = paste0("R² = 0.90")) +
+  annotate("text", x = 2.5, y = 65, label = paste0("p-val < 0.001 ")) +
+  annotate("text", x = 2.3, y = 60, label = paste0("RMSE = ", round(canopy_area_rmse, 2))) + 
+  geom_smooth(method = "lm") +
+  theme(title = element_text(size = 20, face = "bold"),
+        axis.title = element_text(size = 18),
+        axis.text = element_text(size = 16),
+        strip.text = element_text(size = 16))
 
 ggplot(allometry_crown_biomass_df, aes(x = exp(log_canopy_area), y = exp(log_total_biomass_kg))) +
   geom_point() +
