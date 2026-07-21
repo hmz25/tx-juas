@@ -3,14 +3,9 @@ library(tidyverse)
 library(ggpubr)
 library(rstatix)
 library(multcompView)
-library(patchwork)
-library(mgcv)     # for GAM
-library(splines)  # for spline regression
 
 
 setwd('/Users/hannahzonnevylle/Library/CloudStorage/Box-Box/Katz lab/texas')
-
-setwd("C:/Users/HMZ/Box/texas")
 
 # read in ortho pixel values ----------------------------------------------------
 
@@ -29,8 +24,9 @@ df <- df |>
 
 #quick check of female index values to decide cut off value
 female_df <- read_csv("03_output/median_female_index_df.csv")
-max(female_df$median_female_index_val)
-#set cut off value at -0.01
+# max(female_df$median_female_index_val)
+mean(female_df$median_female_index_val)
+#set cut off value at -0.022
 
 
 # calculate index value for each tree -------------------------------------
@@ -49,7 +45,7 @@ fieldmaps_df <- fieldmaps_df |>
 df_index_clean <- df_index |> 
   left_join(fieldmaps_df, by = c("poly_id","site")) |> 
   #remove empty id column automatically imported from qgis
-  dplyr::select(-id) 
+  select(-id) 
 
 # estimate cone/g for each tree based on index ----------------------------
 
@@ -73,7 +69,7 @@ sky_df_24_clean <- sky_df_24 |>
   rename(date_collected = date)
 
 sky_df <- bind_rows(sky_df_26_clean, sky_df_25_clean, sky_df_24_clean) |> 
-  dplyr::select(-notes)
+  select(-notes)
 
 #correct format of date column 
 sky_df <- sky_df |> 
@@ -83,7 +79,7 @@ sky_df <- sky_df |>
 #join sky condition info with index info 
 df_clean <- df_index_clean |> 
   left_join(sky_df, by = c("site", "flight_date")) |> 
-  dplyr::select(-date_collected)
+  select(-date_collected)
 
 #apply correct regression for sky conditions
 #from index regressions... 
@@ -114,31 +110,35 @@ cone_density_est_df <- df_clean |>
     .default = as.character(year)
   ))
 
-# cone_density_est_df <- df_clean |> 
-#   #calculate cone density 
-#   mutate(cones_per_g = case_when(
-#     #set cut-off value for index where below this index value, cones = 0 
-#     rg_index_mean <= -0.01 ~ 0,
-#     #calculate cones/g for when mean index is above cut-off 
-#     condition == "cloudy" ~ (1000 * rg_index_mean) + 68,
-#     condition == "mixed" ~ (1500 * rg_index_mean) + 61,
-#     condition == "sunny" ~ (830 * rg_index_mean) + 40
-#   )) |> 
-#   #apply allometric equation to get total cones
-#   mutate(total_crown_biomass_kg = 1.55*area^1.09,
-#          total_crown_biomass_g = total_crown_biomass_kg*1000,
-#          total_cone_density = total_crown_biomass_g * cones_per_g) |> 
-#   #fixing site naming 
-#   mutate(year = substr(flight_date,1,4),
-#          site = if_else(is.na(site), poly_st, site),
-#          site = case_when(site == "fosh" ~ "fish",
-#                           .default = site)) |>
-#   #reformat dates for flights taken in 2025 field season but technically in year 2024
-#   mutate(year = case_when(
-#     flight_date == "20241230" ~ "2025",
-#     flight_date == "20241231" ~ "2025",
-#     .default = as.character(year)
-#   ))
+cone_density_est_df <- df_clean |>
+  #calculate cone density
+  mutate(cones_per_g = case_when(
+    #set cut-off value for index where below this index value, cones = 0
+    rg_index_mean <= -0.022 ~ 0,
+    #calculate cones/g for when mean index is above cut-off
+    condition == "cloudy" ~ (1000 * rg_index_mean) + 68,
+    condition == "mixed" ~ (1500 * rg_index_mean) + 61,
+    condition == "sunny" ~ (830 * rg_index_mean) + 40
+  )) |>
+  #apply allometric equation to get total cones
+  mutate(total_crown_biomass_kg = 1.55*area^1.09,
+         total_crown_biomass_g = total_crown_biomass_kg*1000,
+         total_cone_density = total_crown_biomass_g * cones_per_g) |>
+  #fixing site naming
+  mutate(year = substr(flight_date,1,4),
+         site = if_else(is.na(site), poly_st, site),
+         site = case_when(site == "fosh" ~ "fish",
+                          .default = site)) |>
+  #reformat dates for flights taken in 2025 field season but technically in year 2024
+  mutate(year = case_when(
+    flight_date == "20241230" ~ "2025",
+    flight_date == "20241231" ~ "2025",
+    .default = as.character(year)
+  )) |> 
+  #drop polygons that never have any cones
+  group_by(poly_id) |>
+  filter(any(cones_per_g > 0)) |>
+  ungroup()
 
 # cone_density_est_df |> 
 #   filter(is.na(site)) |> 
@@ -229,8 +229,7 @@ plot_df <- cone_density_est_df |>
          cones_per_g >= 0) 
 
 plot_df <- cone_density_est_df |> 
-  filter(!site %in% c("good", "gun"),
-         cones_per_g >= 0) |> 
+  filter(!site %in% c("gun", "glim", "will", "cree")) |> 
   group_by(site, poly_id, year) |> 
   summarize(mean_cones_per_g = mean(cones_per_g),
             mean_total_cones = mean(total_cone_density))
@@ -278,171 +277,100 @@ plot_df |>
   ylab("cone density (cones/g)") +
   theme(
     axis.text = element_text(size = 14),
-    axis.title = element_text(size = 16),
+    axis.title = element_text(size = 16, face = "bold"),
     strip.text = element_text(size = 14)
   )
 
 
-#individual-level analyses of how cone density varies as a function of 
-#1. canopy area
-#2. cone production in t-1
+synchrony_df <- plot_df |>
+  group_by(site) |>
+  group_modify(~ {
+    #reshape so each poly_id is a column and each year is a row
+    wide <- .x |>
+      select(poly_id, year, mean_cones_per_g) |>
+      pivot_wider(names_from = poly_id, values_from = mean_cones_per_g)
+    
+    mat <- as.matrix(wide |> select(-year))
+    
+    #need at least 2 individuals and 2 years to get a meaningful correlation
+    if (ncol(mat) < 2 || nrow(mat) < 2) {
+      return(tibble(synchrony_score = NA_real_))
+    }
+    
+    cor_mat <- cor(mat, use = "pairwise.complete.obs", method = "spearman")
+    #average the off-diagonal (upper triangle) pairwise correlations
+    upper_vals <- cor_mat[upper.tri(cor_mat)]
+    tibble(synchrony_score = mean(upper_vals, na.rm = TRUE))
+  }) |>
+  ungroup()
 
-
-colnames(canopy_area_df)
-colnames(cone_density_est_df)
-
-mod_df <- cone_density_est_df %>% 
-  filter(area <= 100,
-         total_cone_density >=0) %>% 
-  group_by(site, poly_id, year, area) %>% 
-  summarize(mean_cones_per_g = mean(cones_per_g),
-            mean_total_cone_density = mean(total_cone_density), 
-            .groups = "drop")
-
-area_mod <- lm(mean_total_cone_density ~ area, data = mod_df)
-summary(area_mod)
-
-area_mod <- lm(mean_cones_per_g ~ area, data = mod_df)
-summary(area_mod)
-
-mod_summary <- summary(area_mod)
-intercept <- coef(area_mod)[1]
-slope <- coef(area_mod)[2]
-r2 <- round(mod_summary$r.squared,2)
-pval <- mod_summary$coefficients[2, 4]  # p-value for the slope
-
-ggplot(mod_df, aes(x = area, y = mean_cones_per_g, col = site)) +
-  geom_point() +
-  geom_smooth(method = "lm") + 
-  theme_classic()
-
-p1 <- ggplot(mod_df, aes(x = area, y = mean_cones_per_g)) +
-  geom_point() +
-  geom_smooth(method = "lm") + 
+ggplot(synchrony_df, aes(x = reorder(site, synchrony_score), y = synchrony_score)) +
+  geom_col(fill = "steelblue") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
+  coord_flip() +
+  labs(x = "site", y = "mean Spearman correlation (synchrony)",
+       title = "synchrony among individuals within each site") +
   theme_classic() + 
-  ylab("cone density (cones/g)") +
-  xlab("canopy area") +
-  ggtitle("cone density ~ canopy area") + 
-  theme(plot.title = element_text(size = 18, face = "bold"),
-        axis.title = element_text(size = 16, face = "bold"),
-        axis.text = element_text(size = 14)) +
-  annotate("text", x = 5, y = 77, label = paste0("R² =", r2), hjust = 0) +
-  annotate("text", x = 5, y = 73, label = paste0("p < 0.001 "), hjust = 0)
+  theme(
+    plot.title = element_text(size = 18, face = "bold"),
+    axis.text = element_text(size = 14),
+    axis.title = element_text(size = 16, face = "bold")
+  )
 
-#quadratic
-area_mod_quad <- lm(mean_cones_per_g ~ poly(area, 2), data = mod_df)
-summary(area_mod_quad)
+#first, get all pairwise correlations (not just the mean) per site
+pairwise_df <- plot_df |>
+  group_by(site) |>
+  group_modify(~ {
+    wide <- .x |> select(poly_id, year, mean_cones_per_g) |>
+      pivot_wider(names_from = poly_id, values_from = mean_cones_per_g)
+    mat <- as.matrix(wide |> select(-year))
+    if (ncol(mat) < 2 || nrow(mat) < 2) return(tibble(correlation = NA_real_))
+    cor_mat <- cor(mat, use = "pairwise.complete.obs")
+    tibble(correlation = cor_mat[upper.tri(cor_mat)])
+  }) |>
+  ungroup()
 
-#spline (natural cubic spline, 3 degrees of freedom — adjust df as needed)
-area_mod_spline <- lm(mean_cones_per_g ~ ns(area, df = 3), data = mod_df)
-summary(area_mod_spline)
+ggplot(pairwise_df, aes(x = reorder(site, correlation, median), y = correlation)) +
+  geom_boxplot(fill = "steelblue", alpha = 0.5, outlier.shape = NA) +
+  geom_jitter(width = 0.15, alpha = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
+  coord_flip() +
+  theme_minimal() +
+  labs(x = "Site", y = "Pairwise correlation", title = "Distribution of pairwise synchrony by site")
 
-#GAM (smooth term automatically determines flexibility)
-area_mod_gam <- gam(mean_cones_per_g ~ s(area), data = mod_df)
-summary(area_mod_gam)
+deviation_df <- plot_df |>
+  group_by(site, year) |>
+  mutate(site_year_mean = mean(mean_cones_per_g, na.rm = TRUE)) |>
+  summarize(spread = sd(mean_cones_per_g, na.rm = TRUE), .groups = "drop")
 
-area_mod_cubic <- lm(mean_cones_per_g ~ poly(area, 3), data = mod_df)
-summary(area_mod_cubic)
-
-#looking at t-1
-cone_density_summary_df <- cone_density_est_df %>% 
-  filter(area <= 100,
-         cones_per_g >= 0) %>% 
-  group_by(site, poly_id, year) %>% 
-  summarize(mean_cones_per_g = mean(cones_per_g),
-            mean_total_cone_density = mean(total_cone_density), 
-            .groups = "drop")
-
-cone_lag_df <- cone_density_summary_df %>% 
-  mutate(year = as.numeric(year)) %>% 
-  mutate(year = year + 1) %>% 
-  mutate(year = as.character(year)) |> 
-  rename(mean_cones_per_g_lag = mean_cones_per_g,
-         mean_total_cones_lag = mean_total_cone_density)
-
-#link with cone density data 
-mod_df2 <- cone_density_summary_df |> 
-  left_join(cone_lag_df, by = c("site", "year", "poly_id")) 
-
-cone_mod <- lm(mean_total_cone_density ~ mean_total_cones_lag, data = mod_df2)
-summary(cone_mod)
-
-cone_mod <- lm(mean_cones_per_g ~ mean_cones_per_g_lag, data = mod_df2)
-summary(cone_mod)
-
-mod_summary <- summary(cone_mod)
-intercept <- coef(cone_mod)[1]
-slope <- coef(cone_mod)[2]
-r2 <- round(mod_summary$r.squared,2)
-pval <- mod_summary$coefficients[2, 4]
-
-p2 <- ggplot(mod_df2, aes(x = mean_total_cones_lag, y = mean_total_cone_density)) +
+ggplot(deviation_df, aes(x = year, y = spread, color = site, group = site)) +
+  geom_line() +
   geom_point() +
-  geom_smooth(method = "lm") + 
+  theme_minimal() +
+  labs(x = "year", y = "SD of cones/g across individuals",
+       title = "within-site variability by year (lower = more synchronized)") +
   theme_classic() + 
-  ylab("total cones") +
-  xlab("total cones in year t-1") +
-  ggtitle("total cones ~ cone production in t-1") + 
-  theme(plot.title = element_text(size = 18, face = "bold"),
-        axis.title = element_text(size = 16, face = "bold"),
-        axis.text = element_text(size = 14)) +
-  annotate("text", x = 5, y = 9000000, label = paste0("R² = ", r2), hjust = 0) +
-  annotate("text", x = 5, y = 8300000, label = "p < 0.001", hjust = 0)
+  theme(
+    plot.title = element_text(size = 18, face = "bold"),
+    axis.text = element_text(size = 14),
+    axis.title = element_text(size = 16, face = "bold"),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12)
+  )
 
-ggplot(mod_df2, aes(x = mean_cones_per_g_lag, y = mean_cones_per_g)) +
-  geom_point() +
-  geom_smooth(method = "lm") + 
-  theme_classic() + 
-  ylab("cone density (cones/g)") +
-  xlab("total cones in year t-1") +
-  ggtitle("cone density ~ cone production in year t-1") + 
-  theme(plot.title = element_text(size = 25, face = "bold"),
-        axis.title = element_text(size = 20),
-        axis.text = element_text(size = 18)) +
-  annotate("text", x = 5, y = 9000000, label = paste0("R² = ", r2), hjust = 0) +
-  annotate("text", x = 5, y = 8300000, label = "p-val < 0.001", hjust = 0)
+synchrony_precip_df <- synchrony_df |>
+  left_join(
+    mod_df_year |> group_by(site) |> summarize(mean_precip = mean(mean_precip_mm_total, na.rm = TRUE)),
+    by = "site"
+  )
 
-p1 + p2
+synchrony_precip_mod <- lm(synchrony_score ~ mean_precip, data = synchrony_precip_df)
+summary(synchrony_precip_mod)
 
-mod3_df <- cone_density_est_df %>% 
-  filter(area <= 100,
-         cones_per_g >= 0) %>% 
-  group_by(site, poly_id, year, foliage_density) %>% 
-  summarize(mean_cones_per_g = mean(cones_per_g),
-            mean_total_cone_density = mean(total_cone_density), 
-            .groups = "drop")
-
-fol_mod <- lm(mean_cones_per_g ~ foliage_density, data = mod3_df)
-summary(fol_mod)
-
-mod4_df <- cone_density_est_df %>% 
-  filter(area <= 100,
-         cones_per_g >= 0) %>% 
-  group_by(site, poly_id, year, height) %>% 
-  summarize(mean_cones_per_g = mean(cones_per_g),
-            mean_total_cone_density = mean(total_cone_density), 
-            .groups = "drop")
-
-height_mod <- lm(mean_cones_per_g ~ height, data = mod4_df)
-summary(height_mod)
-
-mod_summary <- summary(area_mod)
-intercept <- coef(area_mod)[1]
-slope <- coef(area_mod)[2]
-r2 <- round(mod_summary$r.squared,2)
-pval <- mod_summary$coefficients[2, 4]  # p-value for the slope
-
-ggplot(mod3_df, aes(x = area, y = mean_cones_per_g)) +
-  geom_point() +
-  geom_smooth(method = "lm") + 
-  theme_classic() + 
-  ylab("cone density (cones/g") +
-  xlab("canopy area") +
-  ggtitle("cone density ~ canopy area") + 
-  theme(plot.title = element_text(size = 20, face = "bold"),
-        axis.title = element_text(size = 18),
-        axis.text = element_text(size = 14)) +
-  annotate("text", x = 20, y = 50, label = paste0("R² =", r2)) +
-  annotate("text", x = 25, y = 48, label = paste0("p-val < 0.001 "))
-
+ggplot(synchrony_precip_df, aes(x = mean_precip, y = synchrony_score)) +
+  geom_point(size = 3) +
+  geom_smooth(method = "lm", se = TRUE, color = "steelblue") +
+  theme_minimal() +
+  labs(x = "Mean precipitation (mm)", y = "Synchrony score (mean pairwise correlation)",
+       title = "Synchrony vs. precipitation across sites")
 

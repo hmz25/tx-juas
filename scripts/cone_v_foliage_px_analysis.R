@@ -78,7 +78,12 @@ cone_v_fol_dn <- ggplot(px_df_long) +
   geom_density(aes(x = dn, col = band)) +
   facet_wrap(~cone_or_fol) + 
   xlab("digital number value") +
-  theme_classic()
+  theme_classic() +
+  theme(title = element_text(size = 20, face = "bold"),
+        axis.title = element_text(size = 18),
+        axis.text = element_text(size = 16),
+        strip.text = element_text(size = 16),
+        legend.text = element_text(size = 14))
 
 # ggsave(cone_v_fol_dn, filename = "03_output/cone_v_fol_dn.png", dpi = 300,
 #        width = 6, height = 4, units = "in")
