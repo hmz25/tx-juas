@@ -7,16 +7,18 @@ library(tidyverse)
 library(janitor)
 library(lubridate)
 
-# #wd for lab desktop
-# setwd("C:/Users/hmz25/Box/Katz lab/texas/")
+#wd for lab desktop
+setwd("C:/Users/hmz25/Box/Katz lab/texas/")
 
 # #wd for hz macbook
 # setwd("/Users/hannahzonnevylle/Library/CloudStorage/Box-Box/Katz lab/texas")
 
-#mo comp 
-setwd("C:/Users/HMZ/Box/texas")
+# #mo comp 
+# setwd("C:/Users/HMZ/Box/texas")
 
-#load in field maps data sheets and combine into one df
+
+# load in field maps data from each year ----------------------------------
+
 
 #2026 data 
 focal_26 <- read_csv("01_data/FieldMaps data 2026/focal_trees_2026.csv") %>% 
@@ -27,7 +29,8 @@ female_26 <- read_csv("01_data/FieldMaps data 2026/female_trees.csv") %>%
   clean_names()
 # colnames(female_26)
 
-misc_26 <- read_csv("01_data/FieldMaps data 2026/misc_trees.csv") %>% 
+#this data contains misc trees for 2025 and 2026
+misc_trees <- read_csv("01_data/FieldMaps data 2026/misc_trees.csv") %>% 
   clean_names()
 # colnames(misc_26)
 
@@ -36,10 +39,7 @@ focal_25 <- read_csv("01_data/qgis/focal_trees_2025.csv") %>%
   clean_names()
 # colnames(focal_25)
 
-misc_25 <- read_csv("01_data/qgis/misc_trees.csv") %>% 
-  clean_names()
-# colnames(misc_25)
-
+#2024 data 
 trees_24 <- read_csv("01_data/field_data_Jan24_HZ_DK/trees.csv") %>% 
   clean_names()
 # colnames(trees_24)
@@ -48,7 +48,8 @@ misc_24 <- read_csv("01_data/field_data_Jan24_HZ_DK/misc_points.csv") %>%
   clean_names()
 # colnames(misc_24)
 
-#standardize data frames
+
+# standardize data frames across years ------------------------------------
 
 #define the desired columns in final output
 output_cols <- c("x", "y", "date_time", "site", "percent_cones_open", "notes", 
@@ -67,27 +68,13 @@ female_26_std <- female_26 %>%
   mutate(source = "female_26") %>%
   dplyr::select(all_of(output_cols[output_cols %in% names(.)]))
 
-misc_26_std <- misc_26 %>%
-  mutate(source = "misc_26") %>%
+misc_std <- misc_trees %>%
+  mutate(source = "misc_trees") %>%
   dplyr::select(all_of(output_cols[output_cols %in% names(.)]))
 
 #2025 data
 focal_25_std <- focal_25 %>%
-  rename(
-    focal_tree_number = focal_tree,
-    percent_cones_open = percent_co,
-    foliage_density = foliage_de
-  ) %>%
   mutate(source = "focal_25") %>%
-  dplyr::select(all_of(output_cols[output_cols %in% names(.)]))
-
-misc_25_std <- misc_25 %>%
-  rename(
-    percent_cones_open = percent_co,
-    foliage_density = foliage_de
-  ) %>%
-  mutate(source = "misc_25",
-         date_time = as.character(date_time)) %>%
   dplyr::select(all_of(output_cols[output_cols %in% names(.)]))
 
 #2024 data
@@ -107,11 +94,14 @@ misc_24_std <- misc_24 %>%
          date_time = as.character(date_time)) %>%
   dplyr::select(all_of(output_cols[output_cols %in% names(.)]))
 
-#combine
 
+# combine data from each year into one df ---------------------------------
+
+
+#combine
 all_fieldmaps_df <- bind_rows(
-  focal_26_std, female_26_std, misc_26_std,
-  focal_25_std, misc_25_std,
+  focal_26_std, female_26_std, misc_std,
+  focal_25_std,
   trees_24_std, misc_24_std
 )
 
@@ -132,9 +122,7 @@ all_fieldmaps_df_clean <- all_fieldmaps_df %>%
         #reformat as YYYY-MM-DD
         sprintf("%04d-%02d-%02d", parts[3], parts[1], parts[2])
       }
-    }),
-    site = tolower(substr(site, 1, 4))
-  ) %>% 
+    })) %>% 
   #add columns to check focal tree number across years
   mutate(
     year_fieldmaps = as.numeric(substr(date, 1, 4)),
@@ -143,11 +131,67 @@ all_fieldmaps_df_clean <- all_fieldmaps_df %>%
     focal_tree_n_24 = case_when(year_fieldmaps == 2024 ~ focal_tree_number)
   )
 
+unique(all_fieldmaps_df_clean$site)
+
+#need to do additional cleaning of site names 
+all_fieldmaps_df_clean <- all_fieldmaps_df_clean |> 
+  #fix site name typos 
+  mutate(site = case_when(
+    site == "Sonota" ~ "Sonora",
+    site == "Road" ~ "Roadside",
+    site == "Fish" ~ "Fisher",
+    site == "Sweet" ~ "Sweeten",
+    site == "Fun" ~ "Gun",
+    site == "Rock" ~ "Rocky",
+    site == "Wind" ~ "Windmill",
+    site == "Fosher" ~ "Fisher",
+    site == "CATH" ~ "Cathedral",
+    site == "Berber" ~ "Glimmer",
+    site == "Cell tower site" ~ "Cell tower",
+    site == "Fischer" ~ "Fisher",
+    site == "PLACEHOLDER KERR" ~ "Rocky",
+    site == "PLACEHOLDER REAL" ~ "Creek",
+    .default = site 
+  )) |> 
+  #remove "test" sites 
+  filter(!site %in% c("Test", "Test test", "Test again"))
+
+unique(all_fieldmaps_df_clean$site)
+
+#export to CSV
+#final csv is just field maps observations (no canopy segmentation info) 
 # write_csv(all_fieldmaps_df_clean, "01_data/all_years_fieldmaps.csv")
 
-#joining canopy files and shape files
 
-#join field maps and shape files
+# create female tree data frame ------------------------------------------------
+
+# #checking to see how many female labels
+# all_fieldmaps_df_clean |> 
+#   mutate(fem_id = case_when(
+#     grepl("Female", notes, ignore.case = TRUE) | source == "female_26" ~ "yes",
+#     TRUE ~ "no")) |> 
+#   count(fem_id)
+
+# #summary stats for fem ids
+# all_fieldmaps_df_clean |> 
+#   mutate(fem_id = case_when(grepl("Female", notes, ignore.case = TRUE) | source == "female_26" ~ "yes",
+#                             TRUE ~ "no")) |> 
+#   filter(fem_id == "yes") |> 
+#   group_by(site, year_fieldmaps) |> 
+#   count(site, name = "n_entries")
+
+#export female tree csv to segment canopies labeled as female
+female_segmentation_df <- all_fieldmaps_df_clean |> 
+  mutate(fem_id = case_when(grepl("Female", notes, ignore.case = TRUE) | source == "female_26" ~ "yes",
+                            TRUE ~ "no")) |> 
+  filter(fem_id == "yes")
+
+write_csv(female_segmentation_df, "01_data/female_segmentation_df.csv")
+
+
+# join field maps data with canopy segmentation ---------------------------
+
+#create copy of field maps data to work with
 all_trees <- all_fieldmaps_df_clean
 
 #set directory for shifted canopy shape files
@@ -279,7 +323,13 @@ all_trees_final <- bind_rows(shp_focal_final, misc_tree_df)
 
 length(unique(all_trees_final$poly_id))
 
-
+#save output 
 # write_csv(all_trees_final, "01_data/all_trees_shp_clean.csv") 
 
-st_write(all_trees_final, "01_data/all_trees_canopy_seg_shp.shp", delete_dsn = TRUE)
+# st_write(all_trees_final, "01_data/all_trees_canopy_seg_shp.shp", delete_dsn = TRUE)
+
+all_trees_df <- read_csv("01_data/all_trees_shp_clean.csv")
+
+# all_trees_df |> count(classification)
+
+# unique(all_trees_df$site)
