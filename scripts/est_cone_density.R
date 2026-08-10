@@ -4,8 +4,11 @@ library(ggpubr)
 library(rstatix)
 library(multcompView)
 
-
+#hz laptop
 setwd('/Users/hannahzonnevylle/Library/CloudStorage/Box-Box/Katz lab/texas')
+
+#lab desktop
+setwd("C:/Users/hmz25/Box/Katz lab/texas")
 
 # read in ortho pixel values ----------------------------------------------------
 
@@ -21,6 +24,8 @@ df2 <- read_csv("03_output/oneflight_ortho_px_df.csv") |>
 df <- df |> 
   mutate(poly_id = as.character(poly_id)) |> 
   bind_rows(df2)
+length(unique(df$poly_id))
+unique(df$site)
 
 #quick check of female index values to decide cut off value
 female_df <- read_csv("03_output/median_female_index_df.csv")
@@ -109,6 +114,15 @@ cone_density_est_df <- df_clean |>
     flight_date == "20241231" ~ "2025",
     .default = as.character(year)
   ))
+
+#check how many trees are dropped from analysis
+cone_density_est_df <- df_clean |>
+  #calculate cone density
+  mutate(cones_per_g = case_when(
+    #set cut-off value for index where below this index value, cones = 0
+    rg_index_mean <= -0.022 ~ 0,
+    .default = rg_index_mean)) |> 
+  filter(cones_per_g > 0)
 
 cone_density_est_df <- df_clean |>
   #calculate cone density

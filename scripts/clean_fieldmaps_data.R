@@ -173,12 +173,21 @@ unique(all_fieldmaps_df_clean$site)
 #   count(fem_id)
 
 # #summary stats for fem ids
-# all_fieldmaps_df_clean |> 
-#   mutate(fem_id = case_when(grepl("Female", notes, ignore.case = TRUE) | source == "female_26" ~ "yes",
-#                             TRUE ~ "no")) |> 
-#   filter(fem_id == "yes") |> 
-#   group_by(site, year_fieldmaps) |> 
-#   count(site, name = "n_entries")
+all_fieldmaps_df_clean |>
+  mutate(fem_id = case_when(grepl("Female", notes, ignore.case = TRUE) | source == "female_26" ~ "yes",
+                            TRUE ~ "no")) |>
+  filter(fem_id == "yes") |>
+  group_by(site, year_fieldmaps) |>
+  count(site, name = "n_entries")
+
+all_fieldmaps_df_clean |>
+  mutate(fem_id = case_when(grepl("Female", notes, ignore.case = TRUE) | source == "female_26" ~ "yes",
+                            TRUE ~ "no")) |>
+  mutate(site = case_when(site == "Cell tower" ~ "Cell",
+                          .default = site)) |>
+  filter(fem_id == "yes") |>
+  group_by(site) |>
+  count(site, name = "n_entries")
 
 #export female tree csv to segment canopies labeled as female
 female_segmentation_df <- all_fieldmaps_df_clean |> 
@@ -328,8 +337,10 @@ length(unique(all_trees_final$poly_id))
 
 # st_write(all_trees_final, "01_data/all_trees_canopy_seg_shp.shp", delete_dsn = TRUE)
 
-all_trees_df <- read_csv("01_data/all_trees_shp_clean.csv")
+# all_trees_df <- read_csv("01_data/all_trees_shp_clean.csv")
 
 # all_trees_df |> count(classification)
 
 # unique(all_trees_df$site)
+
+all_trees_df <- st_read("01_data/all_trees_canopy_seg_shp.shp")
